@@ -78,7 +78,13 @@ docs/presenter_guide.md           timing, talk track, troubleshooting for presen
 
 ### C. Connect CoCo Desktop (as VHOLuser)
 
-3. Launch CoCo Desktop and open the `openflow-vhol` folder as the project.
+3. **Install and launch CoCo Desktop.** When it asks for a project folder, open the repo
+   folder you cloned in step 1.
+   - Download: https://www.snowflake.com/en/product/snowflake-coco/downloads/
+   - Setup/docs: https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-desktop
+
+   CoCo Desktop is available to all accounts; usage is billed on token consumption, so it
+   runs on your trial credits.
 4. Open **Connections** and add a new connection:
    - **Account identifier:** the `ORG-ACCOUNT` value from Block 2
    - **User:** `VHOLuser`
