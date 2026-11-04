@@ -163,6 +163,10 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
    Data note: the generated inventory is never CRITICAL/LOW (~86% OVERSTOCKED), so the Supply Chain story is
    overstock + rebalancing, not stock-outs. The 30 s budget can cut off long answers; suggest "continue".
 6. Cleanup only when explicitly asked: `solutions/99_cleanup.sql` (confirm first — destructive).
+   SUSPEND/TERMINATE are async: poll the SHOW check after each until the status is reached before the
+   next DROP (in `SHOW OPENFLOW DEPLOYMENTS` the status is the 3rd column; the 2nd is `type`).
+   If the account has other Openflow runtimes or objects in `RETAIL_HOL_ADMIN` / using `RETAIL_HOL_ROLE`,
+   do NOT drop those shared objects — drop only the lab objects and tell the attendee what was kept.
 
 ## Checkpoints
 - **D (deployment):** `SHOW OPENFLOW DEPLOYMENTS;` -> `SPCS_SOM` state. ACTIVE needed before Act 3.
