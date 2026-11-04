@@ -30,7 +30,7 @@ Checkpoint and report the result in one or two lines, then tell the attendee the
 ## Fixed context
 
 - Account: event-provided, region **varies**. SPCS, Openflow, Managed Postgres and
-  Cortex AI are expected to be available. Run the **Preflight** before Part 1 and
+  Cortex AI are expected to be available. Run the **Preflight** before Act 1 and
   stop with a clear message if a feature is missing.
 - CoCo Desktop connection: user `VHOLuser`, role `ACCOUNTADMIN` (from
   `solutions/00_bootstrap.sql`). Run all SQL through the active CoCo SQL connection.
@@ -61,7 +61,7 @@ Checkpoint and report the result in one or two lines, then tell the attendee the
 
 ## Object Model (single source of truth)
 
-### Part 1 — Environment + Openflow deployment (`solutions/01_environment.sql`, `02_openflow_deployment.sql`)
+### Act 1 — Environment + Openflow deployment (`solutions/01_environment.sql`, `02_openflow_deployment.sql`)
 | Object | Name |
 |---|---|
 | Data role | `RETAIL_HOL_ROLE` (granted to current user and SYSADMIN, plus `SNOWFLAKE.CORTEX_USER`) |
@@ -69,7 +69,7 @@ Checkpoint and report the result in one or two lines, then tell the attendee the
 | Admin DB | `RETAIL_HOL_ADMIN` with schemas `SECRETS`, `NETWORK` |
 | Destination DB | `RETAIL_HOL_ICEBERG` with `CATALOG='SNOWFLAKE'`, `EXTERNAL_VOLUME='SNOWFLAKE_MANAGED'` |
 | PG network rule / policy | `RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_INGRESS_RULE` (POSTGRES_INGRESS) / `RETAIL_HOL_NETWORK_POLICY` |
-| Egress rule / EAI | `RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_EGRESS_RULE` (HOST_PORT, placeholder until Part 2) / `RETAIL_HOL_POSTGRES_EAI` |
+| Egress rule / EAI | `RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_EGRESS_RULE` (HOST_PORT, placeholder until Act 2) / `RETAIL_HOL_POSTGRES_EAI` |
 | Openflow namespace | `OPENFLOW_DB.OPENFLOW_SCHEMA` |
 | Roles | `OPENFLOW_ADMIN`, `POSTGRES_INGEST_SERVICE_ROLE` (execute-as role) |
 | Deployment | `SPCS_SOM` (`DEPLOYMENT_TYPE='SNOWFLAKE'`), ~15 min to ACTIVE |
@@ -77,9 +77,9 @@ Checkpoint and report the result in one or two lines, then tell the attendee the
 
 Order matters: run `01_environment.sql` THEN `02_openflow_deployment.sql` (the service
 role grants reference `RETAIL_HOL_ICEBERG`, `RETAIL_HOL_ADMIN`, `RETAIL_HOL_WH`, the EAI).
-Kick off the deployment and immediately continue to Part 2 — do not block on ACTIVE.
+Kick off the deployment and immediately continue to Act 2 — do not block on ACTIVE.
 
-### Part 2 — Postgres source (`solutions/03_postgres_instance.sql`, `scripts/load_retail_data.py`)
+### Act 2 — Postgres source (`solutions/03_postgres_instance.sql`, `scripts/load_retail_data.py`)
 - Instance `RETAIL_HOL_PG`: `COMPUTE_FAMILY='STANDARD_M'`, `STORAGE_SIZE_GB=10`,
   `AUTHENTICATION_AUTHORITY=POSTGRES`, `POSTGRES_VERSION=18`,
   `NETWORK_POLICY='RETAIL_HOL_NETWORK_POLICY'`. Created as `RETAIL_HOL_ROLE`.
@@ -98,7 +98,7 @@ Kick off the deployment and immediately continue to Part 2 — do not block on A
 - Data + publication: `<venv-python> scripts/load_retail_data.py` (reads `pg_creds.json`).
   Do not modify the loader's data logic.
 
-### Part 3 — Runtime + CDC connector (`solutions/04_runtime_connector.sql`, `references/connector_config.md`)
+### Act 3 — Runtime + CDC connector (`solutions/04_runtime_connector.sql`, `references/connector_config.md`)
 - Prereq: `SHOW OPENFLOW DEPLOYMENTS` shows `SPCS_SOM` ACTIVE. If not, report the state and wait.
 - `GRANT READ ON SECRET ... TO ROLE POSTGRES_INGEST_SERVICE_ROLE` (as ACCOUNTADMIN).
 - Runtime `OPENFLOW_DB.OPENFLOW_SCHEMA.POSTGRES_RUNTIME_SOM` IN DEPLOYMENT `SPCS_SOM`,
@@ -114,7 +114,7 @@ Kick off the deployment and immediately continue to Part 2 — do not block on A
 - Destination: `RETAIL_HOL_ICEBERG`, schema strategy `{schema}` (lands in `RETAIL_HOL_ICEBERG.BRONZE`),
   Iceberg v3 tables, warehouse `RETAIL_HOL_WH`, ingestion type Full (snapshot + CDC).
 
-### Part 4 — Silver + Gold Dynamic Iceberg Tables (`solutions/05_silver.sql`, `06_gold.sql`)
+### Act 4 — Silver + Gold Dynamic Iceberg Tables (`solutions/05_silver.sql`, `06_gold.sql`)
 First (as ACCOUNTADMIN) grant `RETAIL_HOL_ROLE` USAGE on `RETAIL_HOL_ICEBERG.BRONZE` and
 SELECT on all + future tables and Iceberg tables. Then as `RETAIL_HOL_ROLE`:
 | Table | Lag | Notes |
@@ -129,7 +129,7 @@ All: `CREATE OR REPLACE DYNAMIC ICEBERG TABLE`, `WAREHOUSE=RETAIL_HOL_WH`, `REFR
 No CATALOG/EXTERNAL_VOLUME clauses — they inherit Snowflake-managed storage from the database.
 Bronze column names are UPPERCASE (connector uses case-insensitive identifiers).
 
-### Part 5 — Semantic View + Agent (`solutions/07_semantic_view.sql`, `08_agent.sql`, `references/agent_spec.md`)
+### Act 5 — Semantic View + Agent (`solutions/07_semantic_view.sql`, `08_agent.sql`, `references/agent_spec.md`)
 - Semantic view `RETAIL_HOL_ICEBERG.GOLD_MANAGED_ICEBERG.RETAIL_PRODUCT_INTELLIGENCE`
   via `CALL SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML('RETAIL_HOL_ICEBERG.GOLD_MANAGED_ICEBERG', $$...$$)`.
   Use the YAML verbatim from `solutions/07_semantic_view.sql`.
@@ -142,7 +142,7 @@ Bronze column names are UPPERCASE (connector uses case-insensitive identifiers).
   (or Snowflake Intelligence/CoWork if they ran the optional grant block). Programmatic
   option: `SNOWFLAKE.CORTEX.DATA_AGENT_RUN` (example in `08_agent.sql`).
 
-## Preflight (run before Part 1)
+## Preflight (run before Act 1)
 ```sql
 SELECT CURRENT_REGION() AS region, CURRENT_ACCOUNT() AS account;
 SHOW OPENFLOW DEPLOYMENTS;            -- command must be recognized
@@ -165,7 +165,7 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
 6. Cleanup only when explicitly asked: `solutions/99_cleanup.sql` (confirm first — destructive).
 
 ## Checkpoints
-- **D (deployment):** `SHOW OPENFLOW DEPLOYMENTS;` -> `SPCS_SOM` state. ACTIVE needed before Part 3.
+- **D (deployment):** `SHOW OPENFLOW DEPLOYMENTS;` -> `SPCS_SOM` state. ACTIVE needed before Act 3.
 - **P (Postgres):** loader prints sales_transactions 4,375 / daily_reviews 4,375 / product_reviews 512 /
   customer_comments 200 / inventory_feed 634 (total 10,096), and the 5 tables in `openflow_retail_pub`.
 - **R (runtime):** `DESCRIBE OPENFLOW RUNTIME POSTGRES_RUNTIME_SOM;` -> ACTIVE.
@@ -186,7 +186,7 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
 5. The agent writes the SQL; one semantic model answers all four personas; budgets cap cost.
 
 ## Stopping points
-- Do not start Part 3 until the deployment is ACTIVE; do not START the connector until COMMIT is stable.
+- Do not start Act 3 until the deployment is ACTIVE; do not START the connector until COMMIT is stable.
 - Confirm with the attendee before running `99_cleanup.sql`.
 
 ## References

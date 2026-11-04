@@ -32,20 +32,20 @@ Each of them uses a different tool, waits for a different report, and trusts a d
 layer runs inside Snowflake under one governance and RBAC model, with no third-party CDC
 engine, no data egress, and no ETL glue.
 
-| Part | Chapter | You'll see |
+| Act | Title | You'll see |
 |---|---|---|
-| 1 | *Lay the foundation* | Openflow infrastructure created as SQL. It takes ~15 min to provision, so you start it first. |
-| 2 | *Open the store* | A Managed Postgres instance filled with ~10,000 rows of retail history |
-| 3 | *Stream it in* | Openflow CDC replicating Postgres into open-format Iceberg, with the connector configured by SQL (no wizard) |
-| 4 | *Make it make sense* | Silver/Gold Dynamic Iceberg Tables with AI sentiment and classification built in |
-| 5 | *Ask it anything* | A semantic view and Cortex Agent answering each persona's question |
-| 6 | *Clean up* | Tear everything down |
+| **Act 1** | *Lay the foundation* | Openflow infrastructure created as SQL. It takes ~15 min to provision, so you start it first. |
+| **Act 2** | *Open the store* | A Managed Postgres instance filled with ~10,000 rows of retail history |
+| **Act 3** | *Stream it in* | Openflow CDC replicating Postgres into open-format Iceberg, with the connector configured by SQL (no wizard) |
+| **Act 4** | *Make it make sense* | Silver/Gold Dynamic Iceberg Tables with AI sentiment and classification built in |
+| **Act 5** | *Ask it anything* | A semantic view and Cortex Agent answering each persona's question |
+| **Act 6** | *Clean up* | Tear everything down |
 
 ## What you need
 
 - A **Snowflake event account** (provided to you) with SPCS, Openflow, Snowflake Managed
   Postgres and Cortex AI enabled. You will be ACCOUNTADMIN. The lab checks feature availability
-  for you in Part 0.
+  for you in Act 0.
 - **CoCo Desktop** ([download](https://www.snowflake.com/en/product/snowflake-coco/downloads/)).
 - **Git** and **Python 3.9+** on your machine (used to load the Postgres data).
 
@@ -93,7 +93,7 @@ docs/                             architecture diagram + presenter guide (timing
 
      Copy it; you'll paste it into the CoCo connection (step 4).
 
-   Roles, warehouse, Postgres, Openflow, Iceberg tables and the agent are built later by prompting CoCo (Part 1 onwards).
+   Roles, warehouse, Postgres, Openflow, Iceberg tables and the agent are built later by prompting CoCo (Act 1 onwards).
 
    ```sql
    -- ===== BLOCK 1: identity + PAT (run this, then copy the PAT into secret.pat) =====
@@ -154,7 +154,7 @@ Each step below is **one prompt** you type into CoCo. The `openflow-retail-vhol`
 sure your objects get exactly the same names and settings as everyone else's. After each
 part, CoCo runs a **checkpoint** query and tells you why that step matters.
 
-### Part 0: Ready to build
+### Act 0: Ready to build
 
 > Test my Snowflake connection, make sure the openflow-retail-vhol skill is loaded, and run the lab preflight.
 
@@ -164,7 +164,7 @@ Agent Settings -> Skills -> Local Skills -> **+ Add Local Skill** and pick the r
 
 ---
 
-### Part 1: Lay the foundation (and start the clock)
+### Act 1: Lay the foundation (and start the clock)
 
 *An Openflow deployment takes about 15 minutes to become ACTIVE, so you start it first and build
 the Postgres source while it provisions.*
@@ -187,7 +187,7 @@ the Postgres source while it provisions.*
 
 ---
 
-### Part 2: Open the store (the operational source)
+### Act 2: Open the store (the operational source)
 
 *Your store's system of record is a Postgres database. With Snowflake Managed Postgres it runs
 in the same account as your analytics.*
@@ -214,9 +214,9 @@ with JSONB metadata and PostGIS warehouse locations). It also lists the tables i
 
 ---
 
-### Part 3: Stream it in (Openflow CDC to Iceberg)
+### Act 3: Stream it in (Openflow CDC to Iceberg)
 
-*Check in on Part 1:*
+*Check in on Act 1:*
 
 > Is the SPCS_SOM deployment ACTIVE yet?
 
@@ -251,7 +251,7 @@ The password never appears in the file. Open `connector/config.json` afterwards 
 
 ---
 
-### Part 4: Make it make sense (Silver + Gold with built-in AI)
+### Act 4: Make it make sense (Silver + Gold with built-in AI)
 
 > Build the Silver layer as Dynamic Iceberg Tables: unpivot sales by region, flatten the inventory
 > JSON with stock health and warehouse coordinates, and enrich product reviews with Cortex
@@ -272,7 +272,7 @@ the Gold tables have frozen regions (`immutable_where`).
 
 ---
 
-### Part 5: Ask it anything
+### Act 5: Ask it anything
 
 > Create the RETAIL_PRODUCT_INTELLIGENCE semantic view over the Gold tables, then the
 > RETAIL_ANALYST_AGENT Cortex Agent that uses it.
@@ -300,7 +300,7 @@ There are 20+ more questions in
 
 ---
 
-### Part 6: Clean up
+### Act 6: Clean up
 
 > Clean up everything this lab created.
 

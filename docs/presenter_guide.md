@@ -19,7 +19,7 @@
 5. "Four personas, one semantic model, one agent, and it has a budget."
 
 ## Timing risks and mitigations
-- **Deployment provisioning (~15 min).** It must start in Part 1. If an attendee is late, have them run Part 1 immediately and do Part 2 while it provisions.
+- **Deployment provisioning (~15 min).** It must start in Act 1. If an attendee is late, have them run Act 1 immediately and do Act 2 while it provisions.
 - **Runtime provisioning (2–5 min).** Fill the wait by explaining `EXECUTE_AS_ROLE` and the cost-control tasks.
 - **Initial snapshot.** Bronze tables can take a few minutes to appear after START.
 - **Cortex in Silver/Gold.** The first refresh of `SILVER_PRODUCT_REVIEWS` and `CUSTOMER_VOICE_ANALYTICS` calls AI functions on every row, so allow a couple of minutes.

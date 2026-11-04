@@ -3,7 +3,7 @@
 All DDL is in the repo `solutions/` folder and was taken verbatim from the original
 notebooks in `notebooks/`. Run the file for each part in order; do not improvise syntax.
 
-| Part | File | Run as |
+| Act | File | Run as |
 |---|---|---|
 | 0 | `solutions/00_bootstrap.sql` | Attendee in Snowsight (not CoCo) |
 | 1a | `solutions/01_environment.sql` | ACCOUNTADMIN |
