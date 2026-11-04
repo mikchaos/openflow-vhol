@@ -127,32 +127,15 @@ docs/presenter_guide.md           timing, talk track, troubleshooting for presen
 
    CoCo Desktop is available to all accounts; usage is billed on token consumption, so it
    runs on your event account's credits.
-4. **Add the connection.** Click the **Connections** button in CoCo Desktop to open the
-   connection manager and add a new connection:
-   - **Account identifier:** paste the **`account_identifier`** value you copied from
-     **Block 2** in step 2. It's the output of
-     `SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME() AS account_identifier;`
-     and looks like `MYORG-MYACCT` (org name, a hyphen, then the account name). Paste it
-     exactly as returned, with no `.snowflakecomputing.com` suffix.
-   - **User:** `VHOLuser`
-   - **Auth:** paste the `vhol_pat` token from **Block 1** (the contents of your `secret.pat`).
-     If the wizard lists **Programmatic Access Token**, use that. If it doesn't (some CoCo
-     Desktop versions only show Password / Key Pair / External Browser), choose **Password**
-     and paste the PAT into the **password** field. A PAT works as a drop-in replacement for
-     a password in Snowflake drivers, and it skips MFA.
+4. **Add the connection.** In CoCo Desktop click **Connections** -> add a new connection:
 
-   Select it so it becomes the **active** connection. CoCo Desktop uses the active connection
-   both for running SQL and for the agent's Cortex inference.
+   | Field | Value |
+   |---|---|
+   | Account identifier | `account_identifier` from **Block 2** (e.g. `MYORG-MYACCT`) |
+   | User | `VHOLuser` |
+   | Auth | **Programmatic Access Token** -> paste the token from **Block 1** (no PAT option? pick **Password** and paste it there) |
 
-   Alternatively, if you'd rather not use the wizard, add the connection directly to
-   `~/.snowflake/connections.toml` and CoCo will list it:
-   ```toml
-   [connections.openflow_vhol]
-   account = "<account_identifier from Block 2, e.g. MYORG-MYACCT>"
-   user = "VHOLuser"
-   authenticator = "PROGRAMMATIC_ACCESS_TOKEN"
-   token = "<paste vhol_pat from Block 1>"
-   ```
+   Make it the **active** connection.
 5. **Pick the model:** the latest Claude Sonnet or Opus, or the latest GPT if Claude isn't listed.
 
 ## Run the lab
