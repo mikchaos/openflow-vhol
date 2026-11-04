@@ -72,13 +72,51 @@ docs/presenter_guide.md           timing, talk track, troubleshooting for presen
 
 ### B. Bootstrap the account (Snowsight)
 
-2. Log in to your event account in **Snowsight** as the provided admin user. Open a worksheet
-   and run `solutions/00_bootstrap.sql` **one block at a time** (highlight a block, then press Cmd/Ctrl+Enter):
-   - **Block 1** creates the lab user `VHOLuser`, a lab network policy, and a Programmatic
-     Access Token `vhol_pat`. **Copy the `token_secret` now**, because it is shown only once.
-     Save it as the **only contents** of a file named `secret.pat` in the repo root (it's
-     gitignored). The lab's helper scripts read it to log in as `VHOLuser`.
-   - **Block 2** prints your account identifier (`ORG-ACCOUNT`). Copy it.
+2. Log in to your event account in **Snowsight** as the provided admin user (you are
+   ACCOUNTADMIN) and run the SQL below in a worksheet (identical to `solutions/00_bootstrap.sql`).
+   It's split into two blocks you run one at a time. **Highlight a block and press Cmd/Ctrl+Enter**:
+   - **Block 1 (identity + PAT):** creates the lab user `VHOLuser`, its network policy, and
+     its PAT `vhol_pat`. **Copy the `token_secret` from the results grid, shown only once**
+     and save it as the **only contents** of a file named `secret.pat` in the **repo root**
+     you cloned in step 1 (gitignored). You'll paste this token into the CoCo connection
+     (step 4), and the lab's helper scripts read `secret.pat` to log in as `VHOLuser`.
+   - **Block 2 (account identifier):** prints your **`account_identifier`**. Copy it; you'll
+     paste it into the CoCo connection (step 4).
+
+   Roles, warehouse, Postgres, Openflow, Iceberg tables and the agent are built later by
+   prompting CoCo (Part 1 onwards).
+   ```sql
+   -- ===== BLOCK 1: identity + PAT (run this, then copy the PAT into secret.pat) =====
+   USE ROLE ACCOUNTADMIN;
+
+   -- Lab user for the CoCo connection and the helper scripts. ACCOUNTADMIN so CoCo can
+   -- build the rest of the pipeline (roles, Postgres, Openflow, Iceberg, agent) via prompts.
+   CREATE USER IF NOT EXISTS VHOLuser
+     DEFAULT_ROLE = ACCOUNTADMIN
+     DEFAULT_SECONDARY_ROLES = ('ALL')
+     COMMENT = 'Openflow Retail VHOL lab user';
+   GRANT ROLE ACCOUNTADMIN TO USER VHOLuser;
+
+   -- PATs require the user to be under a network policy, so open a permissive one (lab only).
+   CREATE NETWORK POLICY IF NOT EXISTS vhol_np ALLOWED_IP_LIST = ('0.0.0.0/0');
+   ALTER USER VHOLuser SET NETWORK_POLICY = vhol_np;
+
+   ALTER USER VHOLuser
+     ADD PROGRAMMATIC ACCESS TOKEN vhol_pat
+       ROLE_RESTRICTION = 'ACCOUNTADMIN'
+       DAYS_TO_EXPIRY = 7
+       COMMENT = 'Openflow Retail VHOL lab token';
+   -- >>> Copy the token_secret value now (shown once) into secret.pat. <<<
+
+   -- ===== BLOCK 2: account identifier (run this, then copy the value into CoCo) =====
+   SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME() AS account_identifier;
+   -- >>> Copy account_identifier (e.g. MYORG-MYACCT). <<<
+
+   -- OPTIONAL teardown (later, from Snowsight as your admin user, NOT from CoCo):
+   -- ALTER USER VHOLuser REMOVE PROGRAMMATIC ACCESS TOKEN vhol_pat;  -- revoke just the token
+   -- DROP USER IF EXISTS VHOLuser;                                   -- remove the lab user
+   -- DROP NETWORK POLICY IF EXISTS vhol_np;                          -- remove its network policy
+   ```
 
 ### C. Connect CoCo Desktop (as VHOLuser)
 
