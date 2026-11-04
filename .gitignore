@@ -1,0 +1,8 @@
+secret.pat
+pg_creds.json
+connector/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+producer/profile.json
