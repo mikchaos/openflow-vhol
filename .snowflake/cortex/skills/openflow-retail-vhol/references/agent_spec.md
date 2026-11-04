@@ -10,11 +10,15 @@ The agent DDL is verbatim in `solutions/08_agent.sql` (from notebook 04). Key se
 Dollar-quote the spec with plain `$$`. To change the agent, re-run the whole
 `CREATE OR REPLACE AGENT ... FROM SPECIFICATION` statement.
 
+> Data note (verified on a live run): the generated inventory is never CRITICAL or LOW, so the
+> original notebook's stock-out question returns "none". The Supply Chain question below is about
+> overstock instead, which tells the real story the data supports.
+
 ## The five lab questions (one per persona + an executive close)
 | Persona | Question |
 |---|---|
 | Merchandiser | What are the top 3 and bottom 3 products by total units sold? Include their positive review percentage. |
-| Supply Chain Planner | Which products had critical or low stock health status? How many days were they at that level? |
+| Supply Chain Planner | Which products are most overstocked relative to their sales, which warehouse city holds them, and where should we rebalance? |
 | CX Lead | Show me the products with the worst customer sentiment. What are customers complaining about? Break down by intent type. |
 | VP of Retail | Give me a weekly business review: total units sold per week, trending sentiment, and flag any products with declining performance over the last 4 weeks. |
 | Operations | Is there a correlation between product quality score and customer sentiment? Show me products with quality below 90 and their average sentiment. |

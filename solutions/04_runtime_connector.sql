@@ -48,7 +48,9 @@ CREATE OPENFLOW CONNECTOR IF NOT EXISTS POSTGRES_INGEST
   FROM DEFINITION OPENFLOW_POSTGRES_CDC
   DISPLAY_NAME = 'POSTGRES_INGEST';
 
--- 4. Configure: download -> edit -> upload -> commit (see skill references/connector_config.md)
+-- 4. Configure: download -> edit -> upload -> commit.
+--    In the lab, steps 3-5 run via scripts/configure_connector.py (verified end to end).
+--    The JDBC jar (postgresql-42.7.5.jar) is PUT next to config.json; see references/connector_config.md.
 LS 'snow://openflow_connector/OPENFLOW_DB.OPENFLOW_SCHEMA.POSTGRES_INGEST/versions/live';
 GET 'snow://openflow_connector/OPENFLOW_DB.OPENFLOW_SCHEMA.POSTGRES_INGEST/versions/live/config.json'
   'file://./connector/';

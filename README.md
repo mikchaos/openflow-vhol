@@ -51,7 +51,9 @@ engine, no data egress, and no ETL glue.
 ```
 README.md                         this file: setup + the full lab story
 solutions/                        SQL answer key (00 bootstrap ... 08 agent, 99 cleanup)
+scripts/setup_postgres.py         creates RETAIL_HOL_PG, saves creds to pg_creds.json, creates the secret + egress rule
 scripts/load_retail_data.py       generates + loads the retail data into Postgres, creates the CDC publication
+scripts/configure_connector.py    creates + configures (config.json) + commits + starts the CDC connector via SQL
 notebooks/                        the original Snowsight notebooks (reference only)
 docs/presenter_guide.md           timing, talk track, troubleshooting for presenters
 .snowflake/cortex/skills/openflow-retail-vhol/   the VHOL skill (auto-loads in CoCo)
@@ -74,6 +76,8 @@ docs/presenter_guide.md           timing, talk track, troubleshooting for presen
    and run `solutions/00_bootstrap.sql` **one block at a time** (highlight a block, then press Cmd/Ctrl+Enter):
    - **Block 1** creates the lab user `VHOLuser`, a lab network policy, and a Programmatic
      Access Token `vhol_pat`. **Copy the `token_secret` now**, because it is shown only once.
+     Save it as the **only contents** of a file named `secret.pat` in the repo root (it's
+     gitignored). The lab's helper scripts read it to log in as `VHOLuser`.
    - **Block 2** prints your account identifier (`ORG-ACCOUNT`). Copy it.
 
 ### C. Connect CoCo Desktop (as VHOLuser)
@@ -84,7 +88,7 @@ docs/presenter_guide.md           timing, talk track, troubleshooting for presen
    - Setup/docs: https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-desktop
 
    CoCo Desktop is available to all accounts; usage is billed on token consumption, so it
-   runs on your trial credits.
+   runs on your event account's credits.
 4. Open **Connections** and add a new connection:
    - **Account identifier:** the `ORG-ACCOUNT` value from Block 2
    - **User:** `VHOLuser`
@@ -145,12 +149,17 @@ the Postgres source while it provisions.*
 *Your store's system of record is a Postgres database. With Snowflake Managed Postgres it runs
 in the same account as your analytics.*
 
-> Create the RETAIL_HOL_PG Snowflake Managed Postgres instance for the lab. Save its host and
-> snowflake_admin password to pg_creds.json without showing me the password, wait until it's
-> READY, then create the Postgres password secret and point the egress rule at the instance host.
+> Set up a Python virtual environment for my OS and install scripts/requirements.txt.
 
-> Set up a Python virtual environment for my OS, install scripts/requirements.txt, and run
-> scripts/load_retail_data.py to load the retail data and create the CDC publication.
+> Create the RETAIL_HOL_PG Snowflake Managed Postgres instance for the lab, without showing me
+> its password, and wire up the secret and egress rule.
+
+CoCo runs `scripts/setup_postgres.py`, which takes about 5 minutes. It creates the instance and
+writes the one-time `snowflake_admin` password straight to `pg_creds.json` (gitignored). Then it
+creates the Snowflake secret and points the egress rule at the new host. You'll only ever
+see the host and `****` plus the last 4 characters of the password.
+
+> Load the retail data into Postgres and create the CDC publication.
 
 **Checkpoint P:** the loader prints row counts for 5 tables in the `bronze` schema
 (`sales_transactions`, `daily_reviews`, `product_reviews`, `customer_comments`, `inventory_feed`,
@@ -178,10 +187,15 @@ Once it shows ACTIVE:
 > replicate the bronze schema from RETAIL_HOL_PG into RETAIL_HOL_ICEBERG as Iceberg v3 tables,
 > commit the configuration, and start it.
 
-CoCo creates the connector from its catalog definition and downloads its `config.json`. It fills
-in your source, secret reference, publication and destination, uploads the file, commits it, and
-starts the connector. CoCo shows you the keys it changed. The password is a secret
-*reference*, so it never appears in the file.
+CoCo runs `scripts/configure_connector.py`. The script:
+1. Creates the connector from its catalog definition: `CREATE OPENFLOW CONNECTOR ... FROM DEFINITION OPENFLOW_POSTGRES_CDC`.
+2. Downloads its live `config.json` and fills in the source URL, a **secret reference** for the
+   password, the publication, the 5 tables and the Iceberg destination.
+3. Uploads the PostgreSQL JDBC driver next to it.
+4. Runs `COMMIT`, then `START`, and prints exactly which keys it changed.
+
+The password never appears in the file. Open `connector/config.json` afterwards to see the
+"connector as code" for yourself.
 
 > Show me the Bronze Iceberg tables Openflow created, and compare their row counts with Postgres.
 
@@ -225,7 +239,8 @@ Now ask the questions from the start of the story:
 > Ask the agent, as the Merchandiser: what are the top 3 and bottom 3 products by total units
 > sold, with their positive review percentage?
 
-> As the Supply Chain Planner: which products had critical or low stock health, and for how many days?
+> As the Supply Chain Planner: which products are most overstocked relative to their sales, which
+> warehouse city holds them, and where should we rebalance?
 
 > As the CX Lead: which products have the worst customer sentiment, and what are customers complaining about by intent type?
 
@@ -278,6 +293,8 @@ encoding your own team's Openflow and pipeline conventions.
 |---|---|
 | Deployment stuck in CREATING | It usually takes ~15 min. If it fails and mentions terms of service, an ORGADMIN must accept the Openflow terms once. |
 | Loader can't connect to Postgres | Check that the instance is READY and that `pg_creds.json` has the right host. |
+| `setup_postgres.py`: instance exists but pg_creds.json is missing | The one-time password is lost. Drop `RETAIL_HOL_PG` (or reset its `snowflake_admin` credentials) and re-run. |
+| Agent says "I've reached the time limit" | The budget is 30 s per answer. Ask a narrower question, or say "continue". |
 | Connector commit/validation error | Ask CoCo to read the error, fix the named key in `config.json`, re-upload and commit again. |
 | Connector running but Bronze is empty | Ask CoCo to "show recent Openflow errors from the event table". The usual causes are an egress rule still set to the placeholder host, or the secret not granted to `POSTGRES_INGEST_SERVICE_ROLE`. |
 | SQL connector config is blocked | Use the wizard fallback in `references/connector_config.md`. Everything else stays the same. |

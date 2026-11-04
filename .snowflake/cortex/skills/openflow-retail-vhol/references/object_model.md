@@ -8,8 +8,8 @@ notebooks in `notebooks/`. Run the file for each part in order; do not improvise
 | 0 | `solutions/00_bootstrap.sql` | Attendee in Snowsight (not CoCo) |
 | 1a | `solutions/01_environment.sql` | ACCOUNTADMIN |
 | 1b | `solutions/02_openflow_deployment.sql` | ACCOUNTADMIN, then OPENFLOW_ADMIN |
-| 2 | `solutions/03_postgres_instance.sql` + `scripts/load_retail_data.py` | RETAIL_HOL_ROLE, then ACCOUNTADMIN |
-| 3 | `solutions/04_runtime_connector.sql` + `connector_config.md` | ACCOUNTADMIN / OPENFLOW_ADMIN |
+| 2 | `scripts/setup_postgres.py` (runs `03_postgres_instance.sql` steps 1-3) + `scripts/load_retail_data.py` | RETAIL_HOL_ROLE, then ACCOUNTADMIN |
+| 3 | `solutions/04_runtime_connector.sql` steps 1-2 (runtime, tasks) + `scripts/configure_connector.py` (connector) | ACCOUNTADMIN / OPENFLOW_ADMIN |
 | 4a | `solutions/05_silver.sql` | ACCOUNTADMIN (grants), then RETAIL_HOL_ROLE |
 | 4b | `solutions/06_gold.sql` | RETAIL_HOL_ROLE |
 | 5a | `solutions/07_semantic_view.sql` | RETAIL_HOL_ROLE |

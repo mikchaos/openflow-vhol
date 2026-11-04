@@ -46,18 +46,18 @@ Checkpoint and report the result in one or two lines, then tell the attendee the
 ## Secrets handling (strict)
 
 - The Postgres `snowflake_admin` password is returned ONCE by `CREATE POSTGRES INSTANCE`.
-  Never print it in chat, never put it in a file that is committed. Write it to
-  `pg_creds.json` at the repo root (gitignored) as
-  `{"host": "...", "user": "snowflake_admin", "password": "...", "database": "postgres", "port": 5432}`.
-- Preferred capture: run the CREATE with the `->>` pipe from `object_model.md` and write the
-  result straight to `pg_creds.json` inside a shell command (e.g., a Python one-liner using
-  the Snowflake connector over the same PAT), or, if your SQL tool returns the row, write the
-  file via a shell command without echoing the password back. Show the attendee only the host
-  and `password: ****<last 4>`.
-- When creating the Snowflake secret, read the password from `pg_creds.json` inside the
-  command path; do not paste it into chat text.
-- If the password is lost: `ALTER POSTGRES INSTANCE RETAIL_HOL_PG RESET ACCESS FOR 'snowflake_admin'`
-  is the recovery path — verify syntax with `cortex search docs` before running.
+  **Never run that CREATE through the SQL tool** (the password would enter chat context).
+  Always run `scripts/setup_postgres.py`, which writes it straight to `pg_creds.json`
+  (gitignored, chmod 600), creates the secret, updates the egress rule, and prints only the
+  host + `****<last 4>`.
+- Never `cat`/read `pg_creds.json`, `secret.pat`, or `~/.snowflake/connections.toml` into chat.
+- Helper-script auth: `--account <ORG-ACCOUNT>` (user `VHOLuser` + PAT from `secret.pat` in the
+  repo root). Get the account with SQL on the active connection:
+  `SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME();`
+  If `secret.pat` is missing, ask the attendee to save their `vhol_pat` token into it first.
+  (Presenters may use `--connection <name>` instead.)
+- If `setup_postgres.py` says the instance exists but `pg_creds.json` is missing, the password
+  is lost: tell the attendee, and with their confirmation drop `RETAIL_HOL_PG` and re-run.
 
 ## Object Model (single source of truth)
 
@@ -68,7 +68,7 @@ Checkpoint and report the result in one or two lines, then tell the attendee the
 | Warehouse | `RETAIL_HOL_WH` XSMALL, AUTO_SUSPEND 60 |
 | Admin DB | `RETAIL_HOL_ADMIN` with schemas `SECRETS`, `NETWORK` |
 | Destination DB | `RETAIL_HOL_ICEBERG` with `CATALOG='SNOWFLAKE'`, `EXTERNAL_VOLUME='SNOWFLAKE_MANAGED'` |
-| PG network rule / policy | `RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_PG_INGRESS_RULE` (POSTGRES_INGRESS) / `RETAIL_HOL_NETWORK_POLICY` |
+| PG network rule / policy | `RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_INGRESS_RULE` (POSTGRES_INGRESS) / `RETAIL_HOL_NETWORK_POLICY` |
 | Egress rule / EAI | `RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_EGRESS_RULE` (HOST_PORT, placeholder until Part 2) / `RETAIL_HOL_POSTGRES_EAI` |
 | Openflow namespace | `OPENFLOW_DB.OPENFLOW_SCHEMA` |
 | Roles | `OPENFLOW_ADMIN`, `POSTGRES_INGEST_SERVICE_ROLE` (execute-as role) |
@@ -91,9 +91,11 @@ Kick off the deployment and immediately continue to Part 2 — do not block on A
   `warehouse_location`), `customer_comments`, `daily_reviews`. Data is deterministic
   (`random.seed(42)`), dates 2024-01-01 to 2025-02-17.
 - Publication `openflow_retail_pub` on all 5 tables.
-- Run the loader locally. **Detect the OS first:**
-  - macOS/Linux: `python3 -m venv .venv`, then `.venv/bin/pip install -r scripts/requirements.txt`, `.venv/bin/python scripts/load_retail_data.py`
-  - Windows: `python -m venv .venv`, then `.venv\Scripts\pip.exe install -r scripts\requirements.txt`, `.venv\Scripts\python.exe scripts\load_retail_data.py`
+- **Detect the OS first**, then create the venv at the repo root and install deps:
+  - macOS/Linux: `python3 -m venv .venv` -> `.venv/bin/pip install -r scripts/requirements.txt`; interpreter `.venv/bin/python`
+  - Windows: `python -m venv .venv` -> `.venv\Scripts\pip.exe install -r scripts\requirements.txt`; interpreter `.venv\Scripts\python.exe` (no `uv`, no POSIX paths)
+- Instance + secret + egress: `<venv-python> scripts/setup_postgres.py --account <ORG-ACCOUNT>` (~5 min; polls to READY).
+- Data + publication: `<venv-python> scripts/load_retail_data.py` (reads `pg_creds.json`).
   Do not modify the loader's data logic.
 
 ### Part 3 — Runtime + CDC connector (`solutions/04_runtime_connector.sql`, `references/connector_config.md`)
@@ -103,10 +105,12 @@ Kick off the deployment and immediately continue to Part 2 — do not block on A
   `NODE_TYPE=MEDIUM`, `MIN_NODES=1`, `MAX_NODES=1`, `EXECUTE_AS_ROLE=POSTGRES_INGEST_SERVICE_ROLE`,
   `EXTERNAL_ACCESS_INTEGRATIONS=(RETAIL_HOL_POSTGRES_EAI)`. Wait for ACTIVE.
 - Tasks `SUSPEND_POSTGRES_RUNTIME_SOM` (5 PM PT) / `RESUME_POSTGRES_RUNTIME_SOM` (6 AM PT). Leave them suspended unless asked.
-- Connector `POSTGRES_INGEST` — **configured with SQL, not the wizard.** Follow
-  `references/connector_config.md` exactly: `CREATE OPENFLOW CONNECTOR ... FROM DEFINITION OPENFLOW_POSTGRES_CDC`
-  -> `GET` live `config.json` to `./connector/` -> edit values -> `PUT` to the live
-  **directory** -> `COMMIT` -> wait stable -> `START` -> wait stable.
+- Connector `POSTGRES_INGEST` — **configured with SQL, not the wizard.** Run
+  `<venv-python> scripts/configure_connector.py --account <ORG-ACCOUNT>`. It does
+  `CREATE OPENFLOW CONNECTOR ... FROM DEFINITION OPENFLOW_POSTGRES_CDC` -> waits out CREATING ->
+  `GET` live `config.json` to `./connector/` -> sets values -> `PUT` JDBC jar + config to the live
+  **directory** -> `COMMIT` -> wait stable -> `START` -> wait stable, and prints the changed keys.
+  Show the attendee the changed-keys list. Details/format: `references/connector_config.md`.
 - Destination: `RETAIL_HOL_ICEBERG`, schema strategy `{schema}` (lands in `RETAIL_HOL_ICEBERG.BRONZE`),
   Iceberg v3 tables, warehouse `RETAIL_HOL_WH`, ingestion type Full (snapshot + CDC).
 
@@ -155,17 +159,21 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
 2. Postgres instance -> READY -> pg_creds.json -> secret + egress rule -> venv + loader. Checkpoint P.
 3. (Deployment ACTIVE) Runtime -> ACTIVE -> tasks -> connector via SQL -> START. Checkpoint C.
 4. Bronze grants -> Silver -> Gold. Checkpoints S, G.
-5. Semantic view -> agent -> ask 3 persona questions with DATA_AGENT_RUN, then point to Snowsight chat.
+5. Semantic view -> agent -> ask persona questions (from `references/agent_spec.md`) with DATA_AGENT_RUN, then point to Snowsight chat.
+   Data note: the generated inventory is never CRITICAL/LOW (~86% OVERSTOCKED), so the Supply Chain story is
+   overstock + rebalancing, not stock-outs. The 30 s budget can cut off long answers; suggest "continue".
 6. Cleanup only when explicitly asked: `solutions/99_cleanup.sql` (confirm first — destructive).
 
 ## Checkpoints
 - **D (deployment):** `SHOW OPENFLOW DEPLOYMENTS;` -> `SPCS_SOM` state. ACTIVE needed before Part 3.
-- **P (Postgres):** loader prints 5 table counts (~10,000+ rows total) and the 5 tables in `openflow_retail_pub`.
+- **P (Postgres):** loader prints sales_transactions 4,375 / daily_reviews 4,375 / product_reviews 512 /
+  customer_comments 200 / inventory_feed 634 (total 10,096), and the 5 tables in `openflow_retail_pub`.
 - **R (runtime):** `DESCRIBE OPENFLOW RUNTIME POSTGRES_RUNTIME_SOM;` -> ACTIVE.
 - **C (CDC):** `SHOW ICEBERG TABLES IN SCHEMA RETAIL_HOL_ICEBERG.BRONZE;` shows 5 tables, then
-  `SELECT COUNT(*) FROM RETAIL_HOL_ICEBERG.BRONZE.SALES_TRANSACTIONS;` matches the loader's count.
+  per-table `COUNT(*)` equals the loader counts (snapshot lands ~1–3 min after START).
   If empty after ~5 min, query `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS` for `severity_text = 'ERROR'`.
-- **S (silver):** `SHOW DYNAMIC TABLES IN SCHEMA RETAIL_HOL_ICEBERG.SILVER_MANAGED_ICEBERG;` -> 3 tables, is_iceberg = true, ADAPTIVE.
+- **S (silver):** `SHOW DYNAMIC TABLES IN SCHEMA RETAIL_HOL_ICEBERG.SILVER_MANAGED_ICEBERG;` -> 3 tables, is_iceberg = true, ADAPTIVE
+  (SILVER_SALES 21,875 rows = 4,375 x 5 regions; SILVER_INVENTORY 634; SILVER_PRODUCT_REVIEWS 512).
   Peek: lowest-sentiment reviews from `SILVER_PRODUCT_REVIEWS` with `AI_REVIEW_THEME`.
 - **G (gold):** `SHOW DYNAMIC TABLES IN SCHEMA RETAIL_HOL_ICEBERG.GOLD_MANAGED_ICEBERG;` -> 3 tables with `immutable_where` set; refresh history query in `06_gold.sql`.
 - **A (agent):** `SHOW AGENTS IN SCHEMA RETAIL_HOL_ICEBERG.GOLD_MANAGED_ICEBERG;` and one DATA_AGENT_RUN answer.

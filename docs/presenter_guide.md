@@ -24,8 +24,17 @@
 - **Initial snapshot.** Bronze tables can take a few minutes to appear after START.
 - **Cortex in Silver/Gold.** The first refresh of `SILVER_PRODUCT_REVIEWS` and `CUSTOMER_VOICE_ANALYTICS` calls AI functions on every row, so allow a couple of minutes.
 
-## Connector SQL path: rehearse before the event
-The SQL steps (`CREATE OPENFLOW CONNECTOR ... FROM DEFINITION OPENFLOW_POSTGRES_CDC`, then GET/PUT `config.json`, then `COMMIT` and `START`) follow the Snowflake docs. The exact parameter keys in `config.json`, and how the PostgreSQL JDBC driver asset is referenced, come from the definition itself. **Do a full dry run on an event account and save a known-good `config.json` (with the secret reference, no passwords).** That lets you confirm the value map in `references/connector_config.md`. If the SQL path is blocked on the day, use the wizard fallback documented there.
+## Connector SQL path: verified, still rehearse
+The SQL steps (`CREATE OPENFLOW CONNECTOR ... FROM DEFINITION OPENFLOW_POSTGRES_CDC`, then GET/PUT `config.json`, then `COMMIT` and `START`) follow the Snowflake docs. The exact parameter keys in `config.json`, and how the PostgreSQL JDBC driver asset is referenced, come from the definition itself. This was verified end to end on a live account (Nov 2026): the connector reached RUNNING and all 5 Bronze tables matched Postgres. `scripts/configure_connector.py` encodes the real `config.json` format. Still do a dry run on one event account before the day. If the SQL path is blocked, use the wizard fallback in `references/connector_config.md`.
+
+## Observed timings (live run)
+- Deployment `SPCS_SOM`: ~15 min to ACTIVE.
+- Postgres instance: ~5 min to READY. Loader: <1 min.
+- Runtime: ~4 min to ACTIVE. Connector create -> RUNNING: ~2 min. Snapshot in Bronze: ~1–2 min.
+- Silver/Gold creation including first AI refresh: ~1 min. Agent answers: 20–30 s. The 30 s budget can truncate multi-step answers ("continue" resumes).
+
+## Data caveat for the story
+The generated inventory is never CRITICAL or LOW (~86% OVERSTOCKED), so tell the Supply Chain story as overstock and rebalancing, not stock-outs.
 
 ## Troubleshooting quick reference
 - Openflow errors: `SELECT TIMESTAMP, RECORD_ATTRIBUTES, VALUE FROM OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS WHERE RECORD_ATTRIBUTES:"severity_text"='ERROR' ORDER BY TIMESTAMP DESC LIMIT 20;`
