@@ -1,4 +1,4 @@
--- Openflow Retail VHOL — Part 2: Snowflake Managed Postgres source
+-- Openflow Retail VHOL — Act 2: Snowflake Managed Postgres source
 -- Source: notebooks/01-retail-hol-instance-creation-data-population.ipynb
 -- In the lab, steps 1-3 run via scripts/setup_postgres.py so the one-time password is never displayed.
 -- This file is the reference SQL / answer key.

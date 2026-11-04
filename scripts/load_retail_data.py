@@ -4,7 +4,7 @@ Connects to the Snowflake Managed Postgres instance RETAIL_HOL_PG, creates the
 `bronze` schema + 5 tables (JSONB + PostGIS), loads deterministic retail data
 (random.seed(42)), and creates the `openflow_retail_pub` publication for CDC.
 
-Credentials are read from pg_creds.json (gitignored, written by CoCo in Part 2):
+Credentials are read from pg_creds.json (gitignored, written by CoCo in Act 2):
   {"host": "...", "user": "snowflake_admin", "password": "..."}
 The password is never printed.
 """

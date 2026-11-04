@@ -1,4 +1,4 @@
--- Openflow Retail VHOL — Part 3: Gen2 runtime + PostgreSQL CDC connector (SQL, no wizard)
+-- Openflow Retail VHOL — Act 3: Gen2 runtime + PostgreSQL CDC connector (SQL, no wizard)
 -- Source: notebooks/02-openflow-gen2-runtime-connector.ipynb + docs "Configure a gen 2 connector with SQL"
 -- Prereq: deployment SPCS_SOM is ACTIVE (SHOW OPENFLOW DEPLOYMENTS).
 

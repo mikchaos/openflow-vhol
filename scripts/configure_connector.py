@@ -1,4 +1,4 @@
-"""Part 3 helper: configure + start the POSTGRES_INGEST Openflow Gen2 PostgreSQL CDC connector with SQL.
+"""Act 3 helper: configure + start the POSTGRES_INGEST Openflow Gen2 PostgreSQL CDC connector with SQL.
 
 Follows "Configure a gen 2 connector with SQL" (Snowflake docs):
   CREATE OPENFLOW CONNECTOR ... FROM DEFINITION OPENFLOW_POSTGRES_CDC

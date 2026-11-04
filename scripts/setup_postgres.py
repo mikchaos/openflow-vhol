@@ -1,4 +1,4 @@
-"""Part 2 helper: create the RETAIL_HOL_PG Managed Postgres instance without exposing its password.
+"""Act 2 helper: create the RETAIL_HOL_PG Managed Postgres instance without exposing its password.
 
 What it does (same SQL as solutions/03_postgres_instance.sql):
   1. CREATE POSTGRES INSTANCE RETAIL_HOL_PG ... (as RETAIL_HOL_ROLE)

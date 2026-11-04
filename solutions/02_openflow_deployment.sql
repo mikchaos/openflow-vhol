@@ -1,4 +1,4 @@
--- Openflow Retail VHOL — Part 1b: Openflow Gen2 deployment (kick off FIRST, ~15 min to ACTIVE)
+-- Openflow Retail VHOL — Act 1b: Openflow Gen2 deployment (kick off FIRST, ~15 min to ACTIVE)
 -- Source: notebooks/00-openflow-gen2-deployment.ipynb. Requires 01_environment.sql.
 
 USE ROLE ACCOUNTADMIN;

@@ -1,4 +1,4 @@
--- Openflow Retail VHOL — Part 1a: Base environment (replaces the pre-provisioned DataOps objects)
+-- Openflow Retail VHOL — Act 1a: Base environment (replaces the pre-provisioned DataOps objects)
 -- Run as ACCOUNTADMIN. Safe to re-run.
 USE ROLE ACCOUNTADMIN;
 
@@ -36,7 +36,7 @@ CREATE NETWORK POLICY IF NOT EXISTS RETAIL_HOL_NETWORK_POLICY
 GRANT USAGE ON NETWORK POLICY RETAIL_HOL_NETWORK_POLICY TO ROLE RETAIL_HOL_ROLE;
 
 -- Egress rule + EAI used by the Openflow runtime to reach Postgres.
--- Placeholder host; updated with the real instance host in Part 2.
+-- Placeholder host; updated with the real instance host in Act 2.
 CREATE NETWORK RULE IF NOT EXISTS RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_EGRESS_RULE
   TYPE = HOST_PORT MODE = EGRESS VALUE_LIST = ('placeholder.invalid:5432');
 CREATE EXTERNAL ACCESS INTEGRATION IF NOT EXISTS RETAIL_HOL_POSTGRES_EAI

@@ -1,4 +1,4 @@
--- Openflow Retail VHOL — Part 5b Cortex Agent
+-- Openflow Retail VHOL — Act 5b Cortex Agent
 -- Source: notebooks/04-retail-hol-talk-to-data.ipynb (verbatim DDL). Run as shown; safe to re-run.
 
 USE ROLE RETAIL_HOL_ROLE;
