@@ -34,12 +34,12 @@ engine, no data egress, and no ETL glue.
 
 | Act | Title | You'll see |
 |---|---|---|
-| **Act 1** | *Lay the foundation* | Openflow infrastructure created as SQL. It takes ~15 min to provision, so you start it first. |
-| **Act 2** | *Open the store* | A Managed Postgres instance filled with ~10,000 rows of retail history |
-| **Act 3** | *Stream it in* | Openflow CDC replicating Postgres into open-format Iceberg, with the connector configured by SQL (no wizard) |
-| **Act 4** | *Make it make sense* | Silver/Gold Dynamic Iceberg Tables with AI sentiment and classification built in |
-| **Act 5** | *Ask it anything* | A semantic view and Cortex Agent answering each persona's question |
-| **Act 6** | *Clean up* | Tear everything down |
+| **Act 1** | *Lay the foundation* | Openflow set up in SQL (started first, ~15 min) |
+| **Act 2** | *Open the store* | Postgres loaded with ~10,000 retail rows |
+| **Act 3** | *Stream it in* | Postgres streams into Iceberg via CDC |
+| **Act 4** | *Make it make sense* | Silver/Gold tables with built-in AI |
+| **Act 5** | *Ask it anything* | An agent answers every persona |
+| **Act 6** | *Clean up* | Everything removed |
 
 ## What you need
 
