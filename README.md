@@ -72,13 +72,26 @@ docs/presenter_guide.md           timing, talk track, troubleshooting for presen
 
 ### B. Bootstrap the account (Snowsight)
 
-2. In **Snowsight** (as ACCOUNTADMIN), open a worksheet, paste the SQL below, and run it
-   **one block at a time** (highlight, then Cmd/Ctrl+Enter):
+2. Log in to your event account in **Snowsight** as the provided admin user (you are ACCOUNTADMIN).
 
-   | Block | Copy this from the result | Save it |
-   |---|---|---|
-   | 1 | `token_secret` (shown once) | as the only line in `secret.pat` in the repo root |
-   | 2 | `account_identifier` | for the CoCo connection (step 4) |
+   Run the SQL below in a worksheet (identical to `solutions/00_bootstrap.sql`).
+
+   It's split into two blocks you run one at a time. **Highlight a block and press Cmd/Ctrl+Enter.**
+
+   - **Block 1 (identity + PAT):** creates the lab user `VHOLuser`, its network policy, and its PAT `vhol_pat`.
+
+     **Copy the `token_secret` from the results grid** (shown only once).
+
+     Save it as the **only contents** of a file named `secret.pat` in the **repo root** you cloned in step 1 (gitignored).
+
+     You'll paste this token into the CoCo connection (step 4), and the lab's helper scripts read `secret.pat` to log in as `VHOLuser`.
+
+   - **Block 2 (account identifier):** prints your **`account_identifier`**.
+
+     Copy it; you'll paste it into the CoCo connection (step 4).
+
+   Roles, warehouse, Postgres, Openflow, Iceberg tables and the agent are built later by prompting CoCo (Part 1 onwards).
+
    ```sql
    -- ===== BLOCK 1: identity + PAT (run this, then copy the PAT into secret.pat) =====
    USE ROLE ACCOUNTADMIN;
