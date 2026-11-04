@@ -1,6 +1,6 @@
 ---
 name: openflow-retail-vhol
-description: "Build the Retail AI-Ready Data Pipeline for the Openflow VHOL: Snowflake Managed Postgres -> Openflow Gen2 PostgreSQL CDC (SQL-configured connector) -> Bronze Iceberg -> Silver/Gold Dynamic Iceberg Tables with Cortex AI -> Semantic View -> Cortex Agent. Loads the exact object model, naming, and DDL so short prompts produce consistent objects. Use when: building any part of this lab. Triggers: openflow vhol, retail hol, candle retailer, RETAIL_HOL_PG, SPCS_SOM, POSTGRES_RUNTIME_SOM, POSTGRES_INGEST, postgres cdc, bronze iceberg, silver managed iceberg, gold managed iceberg, retail analyst agent, RETAIL_PRODUCT_INTELLIGENCE."
+description: "Build the Retail AI-Ready Data Pipeline for the Openflow VHOL: Snowflake Managed Postgres -> Openflow Gen2 PostgreSQL CDC (SQL-configured connector) -> Bronze Iceberg -> Silver/Gold Dynamic Iceberg Tables with Cortex AI -> Semantic View -> Cortex Agent. Loads the exact object model, naming, and DDL so short prompts produce consistent objects. Use when: building any part of this lab. Triggers: openflow vhol, openflow dashboard, connector observability, openflow wizard, retail hol, candle retailer, RETAIL_HOL_PG, SPCS_SOM, POSTGRES_RUNTIME_SOM, POSTGRES_INGEST, postgres cdc, bronze iceberg, silver managed iceberg, gold managed iceberg, retail analyst agent, RETAIL_PRODUCT_INTELLIGENCE."
 ---
 
 # Openflow Retail VHOL — Ingestion to Insight
@@ -111,10 +111,29 @@ Kick off the deployment and immediately continue to Act 2 — do not block on AC
   `GET` live `config.json` to `./connector/` -> sets values -> `PUT` JDBC jar + config to the live
   **directory** -> `COMMIT` -> wait stable -> `START` -> wait stable, and prints the changed keys.
   Show the attendee the changed-keys list. Details/format: `references/connector_config.md`.
-- Destination: `RETAIL_HOL_ICEBERG`, schema strategy `{schema}` (lands in `RETAIL_HOL_ICEBERG.BRONZE`),
+- **Wizard path (Option B):** if the attendee prefers the UI, do NOT run `configure_connector.py`.
+  Give them the wizard steps and value table from `references/connector_config.md` ("Wizard path"),
+  filling in their real host from the `setup_postgres.py` output (never the password). They create and
+  Start it in Snowsight; then you run Checkpoint C. Both paths produce the same `POSTGRES_INGEST`.
+- Destination: `RETAIL_HOL_ICEBERG`, schema strategy `SOURCE_SCHEMA` (lands in `RETAIL_HOL_ICEBERG.BRONZE`),
   Iceberg v3 tables, warehouse `RETAIL_HOL_WH`, ingestion type Full (snapshot + CDC).
 
-### Act 4 — Silver + Gold Dynamic Iceberg Tables (`solutions/05_silver.sql`, `06_gold.sql`)
+### Act 4 — Observability (`solutions/04b_observability.sql`, `scripts/cdc_demo.py`)
+- Event table `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS` (created in Act 1; re-asserted here with IF NOT EXISTS)
+  attached via `ALTER OPENFLOW DEPLOYMENT SPCS_SOM SET EVENT_TABLE = ...`.
+- Grants for the dashboard (read access): USAGE on `OPENFLOW_DB` + `OPENFLOW_SCHEMA`, SELECT on the event table to `RETAIL_HOL_ROLE`.
+- Clustering (documented dashboard optimization):
+  `CLUSTER BY (DATE_TRUNC('HOUR', timestamp), RECORD_TYPE, CAST(record_attributes:"metricNameHash" AS STRING))`.
+- Telemetry queries (verified against real Openflow telemetry): log level is `TRY_PARSE_JSON(value):level` with
+  `record_type = 'LOG'`; metrics use `record:metric:name` with `record_type = 'METRIC'`. Never filter on
+  `record_attributes:severity_text` — Openflow logs don't populate it (returns 0 rows even when errors exist).
+- Dashboard (Snowsight UI, attendee clicks): Ingestion -> Openflow -> Connector Observability; event table
+  `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS`; Last Hour; POSTGRES_INGEST -> View Details (per-table phase/status/Last Ingested);
+  Unhealthy -> Troubleshoot (AI), Issues tab, View logs.
+- Live-CDC proof: `<venv-python> scripts/cdc_demo.py --account <ORG-ACCOUNT>` inserts 5 rows into Postgres
+  `bronze.sales_transactions` (dated today) and polls Bronze until they land. Never write SQL with the Postgres password.
+
+### Act 5 — Silver + Gold Dynamic Iceberg Tables (`solutions/05_silver.sql`, `06_gold.sql`)
 First (as ACCOUNTADMIN) grant `RETAIL_HOL_ROLE` USAGE on `RETAIL_HOL_ICEBERG.BRONZE` and
 SELECT on all + future tables and Iceberg tables. Then as `RETAIL_HOL_ROLE`:
 | Table | Lag | Notes |
@@ -129,7 +148,7 @@ All: `CREATE OR REPLACE DYNAMIC ICEBERG TABLE`, `WAREHOUSE=RETAIL_HOL_WH`, `REFR
 No CATALOG/EXTERNAL_VOLUME clauses — they inherit Snowflake-managed storage from the database.
 Bronze column names are UPPERCASE (connector uses case-insensitive identifiers).
 
-### Act 5 — Semantic View + Agent (`solutions/07_semantic_view.sql`, `08_agent.sql`, `references/agent_spec.md`)
+### Act 6 — Semantic View + Agent (`solutions/07_semantic_view.sql`, `08_agent.sql`, `references/agent_spec.md`)
 - Semantic view `RETAIL_HOL_ICEBERG.GOLD_MANAGED_ICEBERG.RETAIL_PRODUCT_INTELLIGENCE`
   via `CALL SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML('RETAIL_HOL_ICEBERG.GOLD_MANAGED_ICEBERG', $$...$$)`.
   Use the YAML verbatim from `solutions/07_semantic_view.sql`.
@@ -157,12 +176,13 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
 0. Connection + skill check, Preflight.
 1. Environment + kick off Openflow deployment (do not wait). Checkpoint D: `SHOW OPENFLOW DEPLOYMENTS` (expect CREATING/…).
 2. Postgres instance -> READY -> pg_creds.json -> secret + egress rule -> venv + loader. Checkpoint P.
-3. (Deployment ACTIVE) Runtime -> ACTIVE -> tasks -> connector via SQL -> START. Checkpoint C.
-4. Bronze grants -> Silver -> Gold. Checkpoints S, G.
-5. Semantic view -> agent -> ask persona questions (from `references/agent_spec.md`) with DATA_AGENT_RUN, then point to Snowsight chat.
+3. (Deployment ACTIVE) Runtime -> ACTIVE -> tasks -> connector via SQL (Option A) or wizard guidance (Option B) -> START. Checkpoint C.
+4. Observability: `04b_observability.sql` -> point to the Connector Observability dashboard -> `cdc_demo.py`. Checkpoint O.
+5. Bronze grants -> Silver -> Gold. Checkpoints S, G.
+6. Semantic view -> agent -> ask persona questions (from `references/agent_spec.md`) with DATA_AGENT_RUN, then point to Snowsight chat.
    Data note: the generated inventory is never CRITICAL/LOW (~86% OVERSTOCKED), so the Supply Chain story is
    overstock + rebalancing, not stock-outs. The 30 s budget can cut off long answers; suggest "continue".
-6. Cleanup only when explicitly asked: `solutions/99_cleanup.sql` (confirm first — destructive).
+7. Cleanup only when explicitly asked: `solutions/99_cleanup.sql` (confirm first — destructive).
    SUSPEND/TERMINATE are async: poll the SHOW check after each until the status is reached before the
    next DROP (in `SHOW OPENFLOW DEPLOYMENTS` the status is the 3rd column; the 2nd is `type`).
    If the account has other Openflow runtimes or objects in `RETAIL_HOL_ADMIN` / using `RETAIL_HOL_ROLE`,
@@ -175,7 +195,11 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
 - **R (runtime):** `DESCRIBE OPENFLOW RUNTIME POSTGRES_RUNTIME_SOM;` -> ACTIVE.
 - **C (CDC):** `SHOW ICEBERG TABLES IN SCHEMA RETAIL_HOL_ICEBERG.BRONZE;` shows 5 tables, then
   per-table `COUNT(*)` equals the loader counts (snapshot lands ~1–3 min after START).
-  If empty after ~5 min, query `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS` for `severity_text = 'ERROR'`.
+  If empty after ~5 min, run the error-log query in `solutions/04b_observability.sql` (`TRY_PARSE_JSON(value):level = 'ERROR'`, `record_type = 'LOG'`; NOT `record_attributes:severity_text`, which never matches Openflow logs).
+- **O (observability):** event-table telemetry query (query 4) returns LOG and METRIC rows; error-log query (5)
+  returns 0 rows; `cdc_demo.py` reports all new rows in Bronze; dashboard shows POSTGRES_INGEST **Healthy**
+  with tables in **Incremental Replication**. Dashboard needs minimum versions (Snowflake deployment 1.26.0,
+  runtime 2026.3.17.13, PostgreSQL connector 0.39.0); if it says **Upgrade required**, say so — SQL checks still work.
 - **S (silver):** `SHOW DYNAMIC TABLES IN SCHEMA RETAIL_HOL_ICEBERG.SILVER_MANAGED_ICEBERG;` -> 3 tables, is_iceberg = true, ADAPTIVE
   (SILVER_SALES 21,875 rows = 4,375 x 5 regions; SILVER_INVENTORY 634; SILVER_PRODUCT_REVIEWS 512).
   Peek: lowest-sentiment reviews from `SILVER_PRODUCT_REVIEWS` with `AI_REVIEW_THEME`.
@@ -186,8 +210,9 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
 1. Infrastructure-as-SQL, least-privilege by construction (connector runs as a single ingest role), observable from minute one (event table).
 2. OLTP lives in the same account as analytics — no egress, one security perimeter.
 3. CDC without a third-party engine: the Openflow runtime is Snowflake-managed SPCS; connector config is code (config.json, versioned, committed).
-4. Open format with zero setup (Snowflake-managed Iceberg), ADAPTIVE incremental refresh, FROZEN regions stop re-processing history, AI enrichment inline in SQL.
-5. The agent writes the SQL; one semantic model answers all four personas; budgets cap cost.
+4. Telemetry lands in an event table you own: one dashboard for operators, plain SQL for alerts, AI Troubleshoot for root cause.
+5. Open format with zero setup (Snowflake-managed Iceberg), ADAPTIVE incremental refresh, FROZEN regions stop re-processing history, AI enrichment inline in SQL.
+6. The agent writes the SQL; one semantic model answers all four personas; budgets cap cost.
 
 ## Stopping points
 - Do not start Act 3 until the deployment is ACTIVE; do not START the connector until COMMIT is stable.
@@ -195,5 +220,5 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
 
 ## References
 - `references/object_model.md` — part-by-part pointer to verbatim DDL in `solutions/` + gotchas.
-- `references/connector_config.md` — SQL connector configuration procedure and value map.
+- `references/connector_config.md` — SQL connector configuration procedure, real config.json format, and the wizard path.
 - `references/agent_spec.md` — persona question bank and agent notes.

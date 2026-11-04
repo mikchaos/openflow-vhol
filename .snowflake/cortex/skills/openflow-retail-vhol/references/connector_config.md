@@ -60,13 +60,41 @@ Gotchas:
 - Commit/validation error: read the message, fix the named key, PUT again, COMMIT again.
 - Connector is RUNNING but Bronze is empty after ~5 min:
   ```sql
-  SELECT TIMESTAMP, RECORD_ATTRIBUTES, VALUE FROM OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS
-  WHERE RECORD_ATTRIBUTES:"severity_text" = 'ERROR' ORDER BY TIMESTAMP DESC LIMIT 20;
+  SELECT timestamp, TRY_PARSE_JSON(value):formattedMessage::STRING AS message
+  FROM OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS
+  WHERE timestamp > DATEADD('minutes', -30, SYSDATE()) AND record_type = 'LOG'
+    AND TRY_PARSE_JSON(value):level::STRING = 'ERROR'
+  ORDER BY timestamp DESC LIMIT 20;
   ```
   The usual causes are an egress rule that still has the placeholder host, missing READ on the secret for `POSTGRES_INGEST_SERVICE_ROLE`, or a missing publication.
 - For deeper diagnostics, load the bundled `openflow` / `openflow-observability` skills.
 
-## Wizard fallback
-Snowsight -> Ingestion -> Openflow -> Launch Openflow -> switch role to `OPENFLOW_ADMIN` -> Runtime tab ->
-`POSTGRES_RUNTIME_SOM` -> View more connectors -> Gen2 -> **PostgreSQL CDC (Guided Wizard)** -> Install ->
-name it `POSTGRES_INGEST`. Use the values above, then run `ALTER OPENFLOW CONNECTOR OPENFLOW_DB.OPENFLOW_SCHEMA.POSTGRES_INGEST START;`.
+## Wizard path (Option B: same connector, guided UI)
+Source: docs "Configure a connector with the setup wizard" (gen 2 connectors: PostgreSQL CDC, MySQL/MariaDB CDC).
+Prereqs already satisfied by Acts 1–3: gen 2 deployment + runtime, EAI granted to the execute-as role, secret
+readable by `POSTGRES_INGEST_SERVICE_ROLE`, `CREATE OPENFLOW CONNECTOR` + runtime USAGE for `OPENFLOW_ADMIN`.
+
+1. Snowsight -> **Ingestion -> Openflow -> Launch Openflow**; switch role to **OPENFLOW_ADMIN**.
+2. **Connector library** tab -> **PostgreSQL CDC** (gen 2) -> select runtime **POSTGRES_RUNTIME_SOM** -> **Install**;
+   name **POSTGRES_INGEST**. Allow the Openflow data plane access if prompted.
+3. Complete the steps (use **Verify** per step; only the final validation must pass):
+
+| Wizard step | Field | Value |
+|---|---|---|
+| Source | Source Database Connection URL | `jdbc:postgresql://<host>:5432/postgres` |
+| Source | Source Database Driver | upload `postgresql-42.7.5.jar` (https://jdbc.postgresql.org/download/) |
+| Source | Source Database User | `snowflake_admin` |
+| Source | Source Database Password | secret `RETAIL_HOL_ADMIN.SECRETS.RETAIL_HOL_PG_PASSWORD` |
+| Source | Source Database Publication Name | `openflow_retail_pub` |
+| Replication tables | — | Manual; schema `bronze` only (all 5 tables); uncheck `public` |
+| Replication columns | — | all columns; include newly added columns = on |
+| Destination | Destination Database / Warehouse | `RETAIL_HOL_ICEBERG` / `RETAIL_HOL_WH` |
+| Destination | Destination Schema Strategy | source schema name (config value `SOURCE_SCHEMA`) |
+| Destination | Object Identifier Resolution / Oversized Value Strategy | Case Insensitive / Set Null |
+| Destination | Table Storage Format / Iceberg Version | Iceberg / 3 |
+| Tuning, Migration | — | defaults (`* * * * * ?` merge; 2 snapshot queries; ingestion Full) |
+
+4. **Create Connector** -> **Installed Connectors** -> menu -> **Start**.
+5. Edit later: Installed Connectors -> **Edit** (wizard reopens) -> step to end -> **Apply**. **Save and Close**
+   keeps a draft without applying. The runtime canvas is **read-only** for wizard connectors.
+6. Verify: Connector Observability dashboard (Act 4) and Checkpoint C row counts.

@@ -69,9 +69,9 @@ SELECT SYSTEM$WAIT_FOR_STABLE_OPENFLOW_CONNECTORS(600, 'POSTGRES_INGEST');
 USE ROLE ACCOUNTADMIN;
 SHOW ICEBERG TABLES IN SCHEMA RETAIL_HOL_ICEBERG.BRONZE;
 
--- Troubleshooting: recent runtime errors
-SELECT TIMESTAMP, RESOURCE_ATTRIBUTES, RECORD_ATTRIBUTES, VALUE
+-- Troubleshooting: recent runtime errors (full observability queries: 04b_observability.sql)
+SELECT timestamp, TRY_PARSE_JSON(value):formattedMessage::STRING AS message
 FROM OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS
-WHERE RECORD_ATTRIBUTES:"severity_text" = 'ERROR'
-ORDER BY TIMESTAMP DESC
-LIMIT 20;
+WHERE timestamp > DATEADD('minutes', -30, SYSDATE()) AND record_type = 'LOG'
+  AND TRY_PARSE_JSON(value):level::STRING = 'ERROR'
+ORDER BY timestamp DESC LIMIT 20;

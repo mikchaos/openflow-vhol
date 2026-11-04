@@ -10,11 +10,12 @@ notebooks in `notebooks/`. Run the file for each part in order; do not improvise
 | 1b | `solutions/02_openflow_deployment.sql` | ACCOUNTADMIN, then OPENFLOW_ADMIN |
 | 2 | `scripts/setup_postgres.py` (runs `03_postgres_instance.sql` steps 1-3) + `scripts/load_retail_data.py` | RETAIL_HOL_ROLE, then ACCOUNTADMIN |
 | 3 | `solutions/04_runtime_connector.sql` steps 1-2 (runtime, tasks) + `scripts/configure_connector.py` (connector) | ACCOUNTADMIN / OPENFLOW_ADMIN |
-| 4a | `solutions/05_silver.sql` | ACCOUNTADMIN (grants), then RETAIL_HOL_ROLE |
-| 4b | `solutions/06_gold.sql` | RETAIL_HOL_ROLE |
-| 5a | `solutions/07_semantic_view.sql` | RETAIL_HOL_ROLE |
-| 5b | `solutions/08_agent.sql` | RETAIL_HOL_ROLE (optional CoWork block as ACCOUNTADMIN) |
-| 6 | `solutions/99_cleanup.sql` | ACCOUNTADMIN — confirm first |
+| 4 | `solutions/04b_observability.sql` + `scripts/cdc_demo.py` (dashboard is Snowsight UI) | ACCOUNTADMIN |
+| 5a | `solutions/05_silver.sql` | ACCOUNTADMIN (grants), then RETAIL_HOL_ROLE |
+| 5b | `solutions/06_gold.sql` | RETAIL_HOL_ROLE |
+| 6a | `solutions/07_semantic_view.sql` | RETAIL_HOL_ROLE |
+| 6b | `solutions/08_agent.sql` | RETAIL_HOL_ROLE (optional CoWork block as ACCOUNTADMIN) |
+| 7 | `solutions/99_cleanup.sql` | ACCOUNTADMIN — confirm first |
 
 ## Gotchas
 - `01_environment.sql` must run before `02_openflow_deployment.sql` (service-role grants reference its objects).

@@ -37,9 +37,10 @@ engine, no data egress, and no ETL glue.
 | **Act 1** | *Lay the foundation* | Openflow set up in SQL (started first, ~15 min) |
 | **Act 2** | *Open the store* | Postgres loaded with ~10,000 retail rows |
 | **Act 3** | *Stream it in* | Postgres streams into Iceberg via CDC |
-| **Act 4** | *Make it make sense* | Silver/Gold tables with built-in AI |
-| **Act 5** | *Ask it anything* | An agent answers every persona |
-| **Act 6** | *Clean up* | Everything removed |
+| **Act 4** | *Watch it flow* | Live connector health on the Openflow dashboard |
+| **Act 5** | *Make it make sense* | Silver/Gold tables with built-in AI |
+| **Act 6** | *Ask it anything* | An agent answers every persona |
+| **Act 7** | *Clean up* | Everything removed |
 
 ## What you need
 
@@ -53,10 +54,11 @@ engine, no data egress, and no ETL glue.
 
 ```
 README.md                         this file: setup + the full lab story
-solutions/                        SQL answer key (00 bootstrap ... 08 agent, 99 cleanup)
+solutions/                        SQL answer key (00 bootstrap ... 04b observability ... 08 agent, 99 cleanup)
 scripts/setup_postgres.py         creates RETAIL_HOL_PG, saves creds to pg_creds.json, creates the secret + egress rule
 scripts/load_retail_data.py       generates + loads the retail data into Postgres, creates the CDC publication
 scripts/configure_connector.py    creates + configures (config.json) + commits + starts the CDC connector via SQL
+scripts/cdc_demo.py               inserts new rows in Postgres and times their arrival in Bronze (live CDC proof)
 notebooks/                        the original Snowsight notebooks (reference only)
 docs/                             architecture diagram + presenter guide (timing, talk track, troubleshooting)
 .snowflake/cortex/skills/openflow-retail-vhol/   the VHOL skill (auto-loads in CoCo)
@@ -226,6 +228,10 @@ Once it shows ACTIVE:
 > POSTGRES_INGEST_SERVICE_ROLE with the Postgres EAI), plus the suspend/resume cost-control tasks.
 > Wait until the runtime is ACTIVE.
 
+Now create the connector. Pick **one** path; both build the same `POSTGRES_INGEST` connector.
+
+#### Option A (default): connector as code, via SQL
+
 > Create the POSTGRES_INGEST PostgreSQL CDC connector with SQL, not the wizard: configure it to
 > replicate the bronze schema from RETAIL_HOL_PG into RETAIL_HOL_ICEBERG as Iceberg v3 tables,
 > commit the configuration, and start it.
@@ -240,6 +246,41 @@ CoCo runs `scripts/configure_connector.py`. The script:
 The password never appears in the file. Open `connector/config.json` afterwards to see the
 "connector as code" for yourself.
 
+#### Option B: the guided setup wizard (Snowsight)
+
+Prefer clicking through a UI? Ask CoCo for your values first:
+
+> I want to use the Openflow setup wizard instead of SQL. Give me the exact values to enter for the POSTGRES_INGEST connector.
+
+Then in Snowsight:
+1. **Ingestion -> Openflow -> Launch Openflow.** Switch your role to **`OPENFLOW_ADMIN`** (top right).
+2. Open the **Connector library** tab and find **PostgreSQL CDC** (it's marked **gen 2**). Pick runtime
+   **`POSTGRES_RUNTIME_SOM`**, then select **Install** and name it **`POSTGRES_INGEST`**.
+   If you're prompted, **Allow** the Openflow data plane to access your account.
+3. Fill in each wizard step. Select **Verify** on each step to test it; only the final check has to pass.
+
+   | Step | Field | Value |
+   |---|---|---|
+   | Source | Source Database Connection URL | `jdbc:postgresql://<your host>:5432/postgres` (host printed by `setup_postgres.py`) |
+   | | Source Database Driver | upload `postgresql-42.7.5.jar` from [jdbc.postgresql.org](https://jdbc.postgresql.org/download/) |
+   | | Source Database User | `snowflake_admin` |
+   | | Source Database Password | secret `RETAIL_HOL_ADMIN.SECRETS.RETAIL_HOL_PG_PASSWORD` |
+   | | Publication Name | `openflow_retail_pub` |
+   | Replication tables | | **Manual**: tick only schema `bronze` (all 5 tables); untick `public` |
+   | Replication columns | | keep all columns; leave "include newly added columns" on |
+   | Destination | Destination Database | `RETAIL_HOL_ICEBERG` |
+   | | Warehouse | `RETAIL_HOL_WH` |
+   | | Destination Schema Strategy | keep the source schema name (lands in `BRONZE`) |
+   | | Object Identifier Resolution | Case Insensitive |
+   | | Oversized Value Strategy | Set Null |
+   | | Table Storage Format / Iceberg Version | Iceberg / 3 |
+   | Tuning, Migration | | keep the defaults (merge every minute; ingestion type Full) |
+
+4. Select **Create Connector**. On **Installed Connectors**, open the connector's menu and select **Start**.
+
+> **Tip:** to change it later, use **Installed Connectors -> Edit**. The runtime canvas is read-only for
+> wizard connectors.
+
 > Show me the Bronze Iceberg tables Openflow created, and compare their row counts with Postgres.
 
 **Checkpoint C:** 5 Iceberg tables in `RETAIL_HOL_ICEBERG.BRONZE`, and their counts match the loader.
@@ -251,7 +292,39 @@ The password never appears in the file. Open `connector/config.json` afterwards 
 
 ---
 
-### Act 4: Make it make sense (Silver + Gold with built-in AI)
+### Act 4: Watch it flow (Openflow observability)
+
+*The pipeline is live. Now see it the way an operator would.*
+
+> Set up observability for the Openflow pipeline: make sure the dedicated EVENTS event table is
+> attached to SPCS_SOM, give RETAIL_HOL_ROLE read access, cluster it for the dashboard, and show me
+> whether telemetry is arriving and whether there are any errors or stuck FlowFiles.
+
+CoCo runs `solutions/04b_observability.sql`. Then open the dashboard:
+
+1. **Ingestion -> Openflow -> Connector Observability**.
+2. Set **Event table** to `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS` and the time frame to **Last Hour**.
+3. Find `POSTGRES_INGEST`. You'll see its status (**Healthy**/**Unhealthy**), throughput and data ingested.
+4. Open the connector's menu and select **View Details**. Each of the 5 tables shows its **replication phase**
+   (New -> Snapshot Load -> Incremental Replication), its status and **Last Ingested**.
+
+Now prove it's live CDC, not a one-time copy:
+
+> Add 5 new sales rows for Frosted Juniper dated today in Postgres, then show me when they land in Bronze.
+
+The new rows show up in `RETAIL_HOL_ICEBERG.BRONZE.SALES_TRANSACTIONS` within about a minute, and
+**Last Ingested** moves on the dashboard.
+
+**Checkpoint O:** the connector shows **Healthy**, all 5 tables are in **Incremental Replication**,
+the error-log query returns no rows, and the new rows reached Bronze.
+
+> **Why it matters.** Openflow writes its logs and metrics to an event table you own, so health is
+> both a dashboard and plain SQL you can alert on. If a connector turns **Unhealthy**, select
+> **Troubleshoot** on the dashboard for an AI root-cause analysis built from the same telemetry.
+
+---
+
+### Act 5: Make it make sense (Silver + Gold with built-in AI)
 
 > Build the Silver layer as Dynamic Iceberg Tables: unpivot sales by region, flatten the inventory
 > JSON with stock health and warehouse coordinates, and enrich product reviews with Cortex
@@ -272,7 +345,7 @@ the Gold tables have frozen regions (`immutable_where`).
 
 ---
 
-### Act 5: Ask it anything
+### Act 6: Ask it anything
 
 > Create the RETAIL_PRODUCT_INTELLIGENCE semantic view over the Gold tables, then the
 > RETAIL_ANALYST_AGENT Cortex Agent that uses it.
@@ -300,7 +373,7 @@ There are 20+ more questions in
 
 ---
 
-### Act 6: Clean up
+### Act 7: Clean up
 
 > Clean up everything this lab created.
 
@@ -340,7 +413,8 @@ encoding your own team's Openflow and pipeline conventions.
 | Agent says "I've reached the time limit" | The budget is 30 s per answer. Ask a narrower question, or say "continue". |
 | Connector commit/validation error | Ask CoCo to read the error, fix the named key in `config.json`, re-upload and commit again. |
 | Connector running but Bronze is empty | Ask CoCo to "show recent Openflow errors from the event table". The usual causes are an egress rule still set to the placeholder host, or the secret not granted to `POSTGRES_INGEST_SERVICE_ROLE`. |
-| SQL connector config is blocked | Use the wizard fallback in `references/connector_config.md`. Everything else stays the same. |
+| SQL connector config is blocked | Use **Option B (wizard)** in Act 3. Everything else stays the same. |
+| Connector missing from the dashboard | Select event table `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS` and **Last Hour**. Connectors only appear once they've emitted telemetry in that window. |
 | Agent "not an allowed model" | The spec already uses `orchestration: auto`. Pick a model in Snowsight -> Agent -> Configuration. |
 
 ## Credits

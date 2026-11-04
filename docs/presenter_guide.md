@@ -1,22 +1,24 @@
 # Presenter guide — Openflow Retail VHOL
 
-## Run of show (~75 min)
-| Min | Part | Presenter does | Attendees do |
+## Run of show (~85 min)
+| Min | Act | Presenter does | Attendees do |
 |---|---|---|---|
 | 0–10 | Setup | Tell the four-personas story. Walk through bootstrap + CoCo connection | Clone, run bootstrap, connect CoCo |
 | 10–15 | 0 + 1 | Explain why the deployment goes first (~15 min to ACTIVE) | Preflight, environment, kick off `SPCS_SOM` |
 | 15–30 | 2 | Pitch OLTP + analytics on one platform. Show the 5 `bronze` tables and the JSONB/PostGIS columns | Create `RETAIL_HOL_PG`, load data |
-| 30–45 | 3 | Highlight the connector-as-code moment: show `config.json`, COMMIT, START | Runtime, connector, Bronze checkpoint |
-| 45–60 | 4 | Show AI sentiment on the worst reviews, then FROZEN WHERE in `SHOW DYNAMIC TABLES` | Silver, Gold |
-| 60–72 | 5 | Ask each persona's question live in Snowsight Agents chat | Semantic view, agent, questions |
-| 72–75 | 6 | Recap the architecture, then cleanup | Cleanup (optional) |
+| 30–45 | 3 | Highlight the connector-as-code moment: show `config.json`, COMMIT, START. Mention that the wizard (Option B) builds the same connector | Runtime, connector (SQL or wizard), Bronze checkpoint |
+| 45–55 | 4 | Open Connector Observability live: table phases, Last Ingested. Run `cdc_demo.py` and watch new rows land | Observability SQL, dashboard, CDC proof |
+| 55–70 | 5 | Show AI sentiment on the worst reviews, then FROZEN WHERE in `SHOW DYNAMIC TABLES` | Silver, Gold |
+| 70–82 | 6 | Ask each persona's question live in Snowsight Agents chat | Semantic view, agent, questions |
+| 82–85 | 7 | Recap the architecture, then cleanup | Cleanup (optional) |
 
-## Talk track (one line per part)
+## Talk track (one line per act)
 1. "Before any data moves we separate concerns: the connector runs as a single ingest role, and that's the whole blast radius."
 2. "The OLTP database lives in the same account as the analytics, so there's no egress and no second security perimeter."
 3. "There's no Debezium or Kafka. The CDC engine is Snowflake-managed compute, and its config is a versioned file you commit."
-4. "The data is open Iceberg with zero setup. Refresh is adaptive and history is frozen, and the AI is just a SQL function."
-5. "Four personas, one semantic model, one agent, and it has a budget."
+4. "Health is an event table you own: a dashboard for operators and SQL for alerts. And look, a row inserted a minute ago is already in Bronze."
+5. "The data is open Iceberg with zero setup. Refresh is adaptive and history is frozen, and the AI is just a SQL function."
+6. "Four personas, one semantic model, one agent, and it has a budget."
 
 ## Timing risks and mitigations
 - **Deployment provisioning (~15 min).** It must start in Act 1. If an attendee is late, have them run Act 1 immediately and do Act 2 while it provisions.
@@ -36,8 +38,13 @@ The SQL steps (`CREATE OPENFLOW CONNECTOR ... FROM DEFINITION OPENFLOW_POSTGRES_
 ## Data caveat for the story
 The generated inventory is never CRITICAL or LOW (~86% OVERSTOCKED), so tell the Supply Chain story as overstock and rebalancing, not stock-outs.
 
+## Observability notes
+- The dashboard needs minimum versions (Snowflake deployment 1.26.0, runtime 2026.3.17.13, PostgreSQL connector 0.39.0). If a connector shows **Upgrade required**, the SQL checks in `04b_observability.sql` still work.
+- Connectors appear only if they emitted telemetry in the selected window. Use **Last Hour** and event table `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS`.
+- The `severity_text` error query from the original notebook never matches Openflow logs (verified: 0 rows while 116 errors existed). Use query 5 in `04b_observability.sql`.
+
 ## Troubleshooting quick reference
-- Openflow errors: `SELECT TIMESTAMP, RECORD_ATTRIBUTES, VALUE FROM OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS WHERE RECORD_ATTRIBUTES:"severity_text"='ERROR' ORDER BY TIMESTAMP DESC LIMIT 20;`
+- Openflow errors: run query 5 in `solutions/04b_observability.sql` (parses `value` as JSON and filters `level = 'ERROR'`).
 - Connector observability: Snowsight -> Ingestion -> Openflow -> Connector Observability -> event table `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS`.
 - Lost Postgres password: reset the `snowflake_admin` credentials on the instance, then update the secret and `pg_creds.json`.
 - Ask CoCo: "use the openflow-observability skill to diagnose POSTGRES_INGEST".

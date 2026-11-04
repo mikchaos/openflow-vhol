@@ -1,4 +1,4 @@
--- Openflow Retail VHOL — Act 4a Silver Dynamic Iceberg Tables
+-- Openflow Retail VHOL — Act 5a Silver Dynamic Iceberg Tables
 -- Source: notebooks/03-retail-hol-transformations-managed-iceberg.ipynb (verbatim DDL). Run as shown; safe to re-run.
 
 USE ROLE ACCOUNTADMIN;
