@@ -1,18 +1,21 @@
 # Ingestion to Insight: An AI-Ready Retail Pipeline with Openflow
 
-Virtual Hands-On Lab. You run a 12-SKU candle and fragrance brand, with scents like *Frosted Juniper*,
-*Vanilla Cedarlight* and *Sea Salt Blossom*. It sells online and through 4 regional store
-networks, fulfilled from 5 warehouses. In about an hour you'll take that business from an
-operational **Postgres** database to an **AI agent that answers questions in plain English**,
-without leaving Snowflake. You build everything by prompting **CoCo (Cortex Code) Desktop**;
-you don't paste any SQL.
+Virtual Hands-On Lab.
 
-```
- Snowflake Managed       Openflow Gen2          Snowflake-managed        Dynamic Iceberg         Semantic View
-   Postgres (OLTP)  ──▶  PostgreSQL CDC   ──▶   Iceberg  BRONZE   ──▶   SILVER / GOLD    ──▶   + Cortex Agent
-   RETAIL_HOL_PG         POSTGRES_INGEST        (open format)           Cortex AI enrich        "Ask anything"
-     Part 2                 Parts 1 + 3            Part 3                  Part 4                  Part 5
-```
+You run a candle and fragrance brand: 12 scents like *Frosted Juniper*, *Vanilla Cedarlight*
+and *Sea Salt Blossom*. They sell online and through 4 regional store networks, shipped from
+5 warehouses.
+
+Your sales and reviews live in a Postgres database. Your team wants answers now, not next week.
+
+In about an hour you'll stream that data into Snowflake, enrich it with AI, and put an agent on
+top that answers questions in plain English, all without leaving Snowflake.
+
+After a one-time setup script, you build everything by prompting **CoCo (Cortex Code) Desktop**.
+
+<p align="center">
+  <img src="docs/architecture.svg" alt="RETAIL_HOL_PG (Managed Postgres) streams via Openflow Gen2 PostgreSQL CDC into BRONZE Iceberg tables; Dynamic Iceberg Tables refine to SILVER_MANAGED_ICEBERG then GOLD_MANAGED_ICEBERG; RETAIL_ANALYST_AGENT reads Gold through the RETAIL_PRODUCT_INTELLIGENCE semantic view and is used from Snowsight Agents chat and DATA_AGENT_RUN" width="420">
+</p>
 
 ## The story: four people, four tools, zero alignment
 
@@ -55,7 +58,7 @@ scripts/setup_postgres.py         creates RETAIL_HOL_PG, saves creds to pg_creds
 scripts/load_retail_data.py       generates + loads the retail data into Postgres, creates the CDC publication
 scripts/configure_connector.py    creates + configures (config.json) + commits + starts the CDC connector via SQL
 notebooks/                        the original Snowsight notebooks (reference only)
-docs/presenter_guide.md           timing, talk track, troubleshooting for presenters
+docs/                             architecture diagram + presenter guide (timing, talk track, troubleshooting)
 .snowflake/cortex/skills/openflow-retail-vhol/   the VHOL skill (auto-loads in CoCo)
 ```
 
