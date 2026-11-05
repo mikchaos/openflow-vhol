@@ -1,6 +1,11 @@
-# Ingestion to Insight: An AI-Ready Retail Pipeline with Openflow
+# Prompt to Pipeline: Let AI Build Your Real-Time Data Pipeline, Then Talk to It
 
 Virtual Hands-On Lab.
+
+What if you could build a production-grade data pipeline just by describing it? In this
+hands-on lab, you'll do exactly that. Using CoCo, Snowflake's AI coding agent, you'll prompt
+your way from an operational Postgres database to a live AI analyst. You'll write no ETL code
+and stitch together no tools.
 
 You run a candle and fragrance brand: 12 scents like *Frosted Juniper*, *Vanilla Cedarlight*
 and *Sea Salt Blossom*. They sell online and through 4 regional store networks, shipped from
