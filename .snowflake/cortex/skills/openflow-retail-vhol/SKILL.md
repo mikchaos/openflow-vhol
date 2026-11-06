@@ -39,9 +39,19 @@ Checkpoint and report the result in one or two lines, then tell the attendee the
 - Roles: `ACCOUNTADMIN` for setup, `OPENFLOW_ADMIN` for deployment/runtime/connector,
   `RETAIL_HOL_ROLE` for Postgres, Silver/Gold, semantic view and agent. Every DDL block
   starts with the `USE ROLE` shown in `object_model.md`.
+- The lab switches roles (`USE ROLE OPENFLOW_ADMIN` / `RETAIL_HOL_ROLE`), so the VHOLuser PAT must be created
+  WITHOUT `ROLE_RESTRICTION`. A role-restricted PAT pins the session: `USE ROLE` fails with
+  "Current session is restricted. USE ROLE not allowed.", secondary roles are ignored, and everything is
+  owned by the restricted role. If you see that error, STOP — do not work around it by creating objects as
+  ACCOUNTADMIN (ownership will be wrong, e.g. SPCS_SOM owned by ACCOUNTADMIN). Tell the attendee to, in
+  Snowsight: `ALTER USER VHOLuser REMOVE PROGRAMMATIC ACCESS TOKEN vhol_pat;`, re-run bootstrap Block 1,
+  then update `secret.pat` and the CoCo connection token. Not to be confused with "Restricted session scope"
+  errors from CoCo guardrails (a different feature).
 - Setup check prompt ("test the connection and confirm the skill is loaded"): run
   `SELECT CURRENT_ACCOUNT() AS account, CURRENT_USER() AS user, CURRENT_ROLE() AS role, CURRENT_REGION() AS region;`
   report values (expect `VHOLUSER`, `ACCOUNTADMIN`) and confirm `openflow-retail-vhol` is active.
+  Also run `USE ROLE PUBLIC;` then `USE ROLE ACCOUNTADMIN;` to prove role switching works; if it fails with
+  "USE ROLE not allowed", apply the PAT fix above before Act 1.
 
 ## Secrets handling (strict)
 

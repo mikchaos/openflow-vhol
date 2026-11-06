@@ -21,9 +21,11 @@ GRANT ROLE ACCOUNTADMIN TO USER VHOLuser;
 CREATE NETWORK POLICY IF NOT EXISTS vhol_np ALLOWED_IP_LIST = ('0.0.0.0/0');
 ALTER USER VHOLuser SET NETWORK_POLICY = vhol_np;
 
+-- No ROLE_RESTRICTION on purpose: a role-restricted PAT pins the session to that one role
+-- (USE ROLE is rejected, secondary roles are ignored). This lab switches between
+-- ACCOUNTADMIN, OPENFLOW_ADMIN and RETAIL_HOL_ROLE, so the token must not be restricted.
 ALTER USER VHOLuser
   ADD PROGRAMMATIC ACCESS TOKEN vhol_pat
-    ROLE_RESTRICTION = 'ACCOUNTADMIN'
     DAYS_TO_EXPIRY = 7
     COMMENT = 'Openflow Retail VHOL lab token';
 -- >>> Copy the token_secret value now (shown once). Paste it into CoCo Desktop's connection. <<<

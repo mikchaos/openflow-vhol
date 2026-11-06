@@ -118,9 +118,11 @@ docs/                             architecture diagram + presenter guide (timing
    CREATE NETWORK POLICY IF NOT EXISTS vhol_np ALLOWED_IP_LIST = ('0.0.0.0/0');
    ALTER USER VHOLuser SET NETWORK_POLICY = vhol_np;
 
+   -- No ROLE_RESTRICTION on purpose: a role-restricted PAT pins the session to that one role
+   -- (USE ROLE is rejected, secondary roles are ignored). This lab switches between
+   -- ACCOUNTADMIN, OPENFLOW_ADMIN and RETAIL_HOL_ROLE, so the token must not be restricted.
    ALTER USER VHOLuser
      ADD PROGRAMMATIC ACCESS TOKEN vhol_pat
-       ROLE_RESTRICTION = 'ACCOUNTADMIN'
        DAYS_TO_EXPIRY = 7
        COMMENT = 'Openflow Retail VHOL lab token';
    -- >>> Copy the token_secret value now (shown once) into secret.pat. <<<
@@ -415,6 +417,7 @@ encoding your own team's Openflow and pipeline conventions.
 | Deployment stuck in CREATING | It usually takes ~15 min. If it fails and mentions terms of service, an ORGADMIN must accept the Openflow terms once. |
 | Loader can't connect to Postgres | Check that the instance is READY and that `pg_creds.json` has the right host. |
 | `setup_postgres.py`: instance exists but pg_creds.json is missing | The one-time password is lost. Drop `RETAIL_HOL_PG` (or reset its `snowflake_admin` credentials) and re-run. |
+| `USE ROLE not allowed` / `Current session is restricted` | Your PAT was created with `ROLE_RESTRICTION`, which pins the session to one role. In Snowsight, run `ALTER USER VHOLuser REMOVE PROGRAMMATIC ACCESS TOKEN vhol_pat;`, re-run Block 1 (no role restriction), and update the token in `secret.pat` and the CoCo connection. |
 | Agent says "I've reached the time limit" | The budget is 30 s per answer. Ask a narrower question, or say "continue". |
 | Connector commit/validation error | Ask CoCo to read the error, fix the named key in `config.json`, re-upload and commit again. |
 | Connector running but Bronze is empty | Ask CoCo to "show recent Openflow errors from the event table". The usual causes are an egress rule still set to the placeholder host, or the secret not granted to `POSTGRES_INGEST_SERVICE_ROLE`. |
