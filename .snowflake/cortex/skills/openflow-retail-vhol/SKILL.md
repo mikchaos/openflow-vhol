@@ -49,7 +49,8 @@ Checkpoint and report the result in one or two lines, then tell the attendee the
   errors from CoCo guardrails (a different feature).
 - Setup check prompt ("test the connection and confirm the skill is loaded"): run
   `SELECT CURRENT_ACCOUNT() AS account, CURRENT_USER() AS user, CURRENT_ROLE() AS role, CURRENT_REGION() AS region;`
-  report values (expect `VHOLUSER`, `ACCOUNTADMIN`) and confirm `openflow-retail-vhol` is active.
+  report values (expect `VHOLUSER`, `ACCOUNTADMIN`) and confirm `openflow-retail-vhol` is active (the attendee added it
+  in README setup step 5; if somehow not, point them back to that step: Agent Settings -> Skills -> Local Skills -> + Add Local Skill).
   Also run `USE ROLE PUBLIC;` then `USE ROLE ACCOUNTADMIN;` to prove role switching works; if it fails with
   "USE ROLE not allowed", apply the PAT fix above before Act 1.
 

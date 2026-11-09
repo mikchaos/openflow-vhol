@@ -67,7 +67,7 @@ scripts/cdc_demo.py               live CDC proof: one-shot rows, or --continuous
 scripts/fail_replication.py       Act 4 drill: --break one table (no primary key) to fire the alert, --fix to restore
 notebooks/                        the original Snowsight notebooks (reference only)
 docs/                             architecture diagram + presenter guide (timing, talk track, troubleshooting)
-.snowflake/cortex/skills/openflow-retail-vhol/   the VHOL skill (auto-loads in CoCo)
+.snowflake/cortex/skills/openflow-retail-vhol/   the VHOL skill (added in setup step 5)
 ```
 
 ## Setup
@@ -164,7 +164,16 @@ docs/                             architecture diagram + presenter guide (timing
    token *is* the password here. (If your CoCo version lists **Programmatic Access Token**, that works too.)
 
    Make it the **active** connection.
-5. **Pick the model:** the latest Claude Sonnet or Opus, or the latest GPT if Claude isn't listed.
+5. **Add the lab skill.** The `openflow-retail-vhol` skill is what gives everyone the same object names and
+   settings, so add it before you start:
+   1. In CoCo Desktop, open **Agent Settings** (left sidebar) -> **Skills**.
+   2. In the **Local Skills** section, click **+ Add Local Skill**.
+   3. Pick the repo folder you cloned in step 1 (`openflow-vhol`). CoCo scans it and registers the skill.
+   4. Confirm **`openflow-retail-vhol`** now appears under **Local Skills**.
+
+   (CoCo may already list it there, because it auto-discovers skills in an opened project. If it does,
+   you're done with this step.)
+6. **Pick the model:** the latest Claude Sonnet or Opus, or the latest GPT if Claude isn't listed.
 
 ## Run the lab
 
@@ -174,11 +183,11 @@ part, CoCo runs a **checkpoint** query and tells you why that step matters.
 
 ### Act 0: Ready to build
 
-> Test my Snowflake connection, make sure the openflow-retail-vhol skill is loaded, and run the lab preflight.
+> Test my Snowflake connection, confirm the openflow-retail-vhol skill is active, and run the lab preflight.
 
-CoCo shows your account, user (`VHOLUSER`), role (`ACCOUNTADMIN`) and region. It then checks that
-Openflow, Managed Postgres and Cortex AI respond in this account. If the skill isn't loaded, go to
-Agent Settings -> Skills -> Local Skills -> **+ Add Local Skill** and pick the repo folder.
+You added the skill in setup step 5; this is a quick check that the connection, skill and account are all
+ready. CoCo shows your account, user (`VHOLUSER`), role (`ACCOUNTADMIN`) and region, confirms the skill is
+active, and checks that Openflow, Managed Postgres and Cortex AI respond in this account.
 
 ---
 
@@ -443,7 +452,7 @@ Snowsight. You can't do it from CoCo, because CoCo is logged in as that user.
 
 You typed plain-English prompts, yet everyone's objects came out identical. That consistency comes
 from the **`openflow-retail-vhol` skill** (`.snowflake/cortex/skills/openflow-retail-vhol/`).
-CoCo loads it automatically when you open this folder:
+You added it in setup step 5 (CoCo can also auto-discover it when you open this folder):
 
 - **`SKILL.md`** holds the object model (exact names and settings), the workflow, the checkpoints,
   the secret-handling rules and the "why it matters" lines.
