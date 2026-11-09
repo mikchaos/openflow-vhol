@@ -1,0 +1,113 @@
+"""Act 4 failure drill: make ONE table's replication fail on purpose, watch the alert fire, then fix it.
+
+--break  creates Postgres table bronze.pos_events WITHOUT a primary key, adds it to the openflow_retail_pub
+         publication and to the POSTGRES_INGEST table list (stop -> edit config.json -> commit -> start).
+         The connector can't replicate a table without a primary key, so within ~1-2 min its
+         db.table.status becomes 4008 (MISSING_PRIMARY_KEYS), the dashboard shows the table as failed,
+         and POSTGRES_INGEST_TABLE_FAILURE_ALERT (solutions/04b_observability.sql) logs it.
+         The 5 lab tables keep replicating: the failure is isolated to one table.
+--fix    removes pos_events from the connector and the publication, and drops it from Postgres.
+
+Auth (pick one):
+  --account ORG-ACCOUNT    uses user VHOLuser + the PAT in secret.pat (repo root)
+  --connection NAME        uses a named connection from ~/.snowflake/connections.toml
+"""
+import argparse
+import json
+import os
+import sys
+
+import psycopg2
+
+from configure_connector import DRIVER, LIVE, ROOT, TABLES, WORK, connect, run
+
+DRILL_TABLE = "pos_events"
+WAIT = "SELECT SYSTEM$WAIT_FOR_STABLE_OPENFLOW_CONNECTORS(600, 'POSTGRES_INGEST')"
+TABLE_KEY = ("Replication table schema", "Included Comma Separated Source Table Names")
+
+
+def postgres(sql_statements):
+    with open(os.path.join(ROOT, "pg_creds.json")) as f:
+        creds = json.load(f)
+    pg = psycopg2.connect(host=creds["host"], port=creds.get("port", 5432), dbname=creds.get("database", "postgres"),
+                          user=creds.get("user", "snowflake_admin"), password=creds["password"], sslmode="require")
+    pg.autocommit = True
+    cur = pg.cursor()
+    for sql in sql_statements:
+        cur.execute(sql)
+        print(f"PG  {' '.join(sql.split())[:100]}")
+    pg.close()
+
+
+def set_connector_tables(cur, tables):
+    """Stop the connector, set its replicated-table list in the live config.json, commit and start it again."""
+    run(cur, "USE ROLE OPENFLOW_ADMIN")
+    run(cur, "USE DATABASE OPENFLOW_DB")
+    run(cur, "USE SCHEMA OPENFLOW_SCHEMA")
+    status = run(cur, "SHOW OPENFLOW CONNECTORS LIKE 'POSTGRES_INGEST'", show=False)
+    if not status:
+        sys.exit("Connector POSTGRES_INGEST not found. Finish Act 3 first.")
+    if status[0][1] == "RUNNING":
+        run(cur, "ALTER OPENFLOW CONNECTOR POSTGRES_INGEST STOP")
+        print("   ", run(cur, WAIT)[0][0])
+    if not run(cur, f"LS '{LIVE}'", show=False):
+        run(cur, "ALTER OPENFLOW CONNECTOR POSTGRES_INGEST ADD LIVE VERSION FROM LAST")
+
+    os.makedirs(WORK, exist_ok=True)
+    run(cur, f"GET '{LIVE}config.json' 'file://{WORK}/'")
+    path = os.path.join(WORK, "config.json")
+    with open(path) as f:
+        cfg = json.load(f)
+    group = next(g for g in cfg["configuration"] if g["name"] == TABLE_KEY[0])
+    group["properties"][TABLE_KEY[1]] = {"valueType": "STRING_LITERAL", "value": tables}
+    with open(path, "w") as f:
+        json.dump(cfg, f, indent=2)
+    print(f"Set {TABLE_KEY[0]} / {TABLE_KEY[1]} = {tables}")
+
+    jar = os.path.join(WORK, DRIVER)
+    if os.path.exists(jar):  # keep the driver asset next to the config in the live version
+        run(cur, f"PUT 'file://{jar}' '{LIVE}' AUTO_COMPRESS = FALSE OVERWRITE = TRUE")
+    run(cur, f"PUT 'file://{path}' '{LIVE}' AUTO_COMPRESS = FALSE OVERWRITE = TRUE")
+    run(cur, "ALTER OPENFLOW CONNECTOR POSTGRES_INGEST COMMIT")
+    print("   ", run(cur, WAIT)[0][0])
+    run(cur, "ALTER OPENFLOW CONNECTOR POSTGRES_INGEST START")
+    print("   ", run(cur, WAIT)[0][0])
+    print("   ", run(cur, "SHOW OPENFLOW CONNECTORS LIKE 'POSTGRES_INGEST'", show=False)[0][:3])
+
+
+def main():
+    p = argparse.ArgumentParser()
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--account")
+    g.add_argument("--connection")
+    m = p.add_mutually_exclusive_group(required=True)
+    m.add_argument("--break", dest="mode", action="store_const", const="break")
+    m.add_argument("--fix", dest="mode", action="store_const", const="fix")
+    args = p.parse_args()
+
+    conn = connect(args)
+    cur = conn.cursor()
+    if args.mode == "break":
+        postgres([
+            f"CREATE TABLE IF NOT EXISTS bronze.{DRILL_TABLE} "
+            "(store_id INT, event_type TEXT, event_at TIMESTAMPTZ DEFAULT NOW())",  # no PRIMARY KEY on purpose
+            f"INSERT INTO bronze.{DRILL_TABLE} (store_id, event_type) VALUES (1, 'open'), (2, 'open'), (3, 'close')",
+            f"ALTER PUBLICATION openflow_retail_pub ADD TABLE bronze.{DRILL_TABLE}",
+        ])
+        set_connector_tables(cur, f'{TABLES},"bronze"."{DRILL_TABLE}"')
+        print(f"\nBroken on purpose: bronze.{DRILL_TABLE} has no primary key. In ~1-2 min expect "
+              "db.table.status = 4008 (query 11), a row in REPLICATION_ALERT_LOG (query 12),\n"
+              "and the table marked failed in Connector Observability -> POSTGRES_INGEST -> View Details. "
+              "Then run with --fix.")
+    else:
+        set_connector_tables(cur, TABLES)
+        postgres([
+            f"ALTER PUBLICATION openflow_retail_pub DROP TABLE bronze.{DRILL_TABLE}",
+            f"DROP TABLE IF EXISTS bronze.{DRILL_TABLE}",
+        ])
+        print(f"\nFixed: bronze.{DRILL_TABLE} removed from replication; the 5 lab tables are unaffected.")
+    conn.close()
+
+
+if __name__ == "__main__":
+    main()

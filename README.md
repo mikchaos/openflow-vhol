@@ -19,7 +19,7 @@ top that answers questions in plain English, all without leaving Snowflake.
 After a one-time setup script, you build everything by prompting **CoCo (Cortex Code) Desktop**.
 
 <p align="center">
-  <img src="docs/architecture.svg" alt="RETAIL_HOL_PG (Managed Postgres) streams via Openflow Gen2 PostgreSQL CDC into BRONZE Iceberg tables; Dynamic Iceberg Tables refine to SILVER_MANAGED_ICEBERG then GOLD_MANAGED_ICEBERG; RETAIL_ANALYST_AGENT reads Gold through the RETAIL_PRODUCT_INTELLIGENCE semantic view and is used from Snowsight Agents chat and DATA_AGENT_RUN" width="420">
+  <img src="docs/architecture.svg" alt="RETAIL_HOL_PG (Managed Postgres) streams via Openflow Gen2 PostgreSQL CDC into BRONZE Iceberg tables; Dynamic Iceberg Tables refine to SILVER_MANAGED_ICEBERG then GOLD_MANAGED_ICEBERG; RETAIL_ANALYST_AGENT reads Gold through the RETAIL_PRODUCT_INTELLIGENCE semantic view and is used from Snowflake CoWork and DATA_AGENT_RUN" width="420">
 </p>
 
 ## The story: four people, four tools, zero alignment
@@ -42,9 +42,9 @@ engine, no data egress, and no ETL glue.
 | **Act 1** | *Lay the foundation* | Openflow set up in SQL (started first, ~15 min) |
 | **Act 2** | *Open the store* | Postgres loaded with ~10,000 retail rows |
 | **Act 3** | *Stream it in* | Postgres streams into Iceberg via CDC |
-| **Act 4** | *Watch it flow* | Live connector health on the Openflow dashboard |
+| **Act 4** | *Watch it flow* | Live traffic, latency, and an alert on a failed table |
 | **Act 5** | *Make it make sense* | Silver/Gold tables with built-in AI |
-| **Act 6** | *Ask it anything* | An agent answers every persona |
+| **Act 6** | *Ask it anything* | An agent answers every persona, then goes live in CoWork |
 | **Act 7** | *Clean up* | Everything removed |
 
 ## What you need
@@ -63,7 +63,8 @@ solutions/                        SQL answer key (00 bootstrap ... 04b observabi
 scripts/setup_postgres.py         creates RETAIL_HOL_PG, saves creds to pg_creds.json, creates the secret + egress rule
 scripts/load_retail_data.py       generates + loads the retail data into Postgres, creates the CDC publication
 scripts/configure_connector.py    creates + configures (config.json) + commits + starts the CDC connector via SQL
-scripts/cdc_demo.py               inserts new rows in Postgres and times their arrival in Bronze (live CDC proof)
+scripts/cdc_demo.py               live CDC proof: one-shot rows, or --continuous traffic generator
+scripts/fail_replication.py       Act 4 drill: --break one table (no primary key) to fire the alert, --fix to restore
 notebooks/                        the original Snowsight notebooks (reference only)
 docs/                             architecture diagram + presenter guide (timing, talk track, troubleshooting)
 .snowflake/cortex/skills/openflow-retail-vhol/   the VHOL skill (auto-loads in CoCo)
@@ -86,28 +87,21 @@ docs/                             architecture diagram + presenter guide (timing
 
    Run the SQL below in a worksheet (identical to `solutions/00_bootstrap.sql`).
 
-   It's split into two blocks you run one at a time. **Highlight a block and press Cmd/Ctrl+Enter.**
-
-   - **Block 1 (identity + PAT):** creates the lab user `VHOLuser`, its network policy, and its PAT `vhol_pat`.
-
-     **Copy the `token_secret` from the results grid** (shown only once).
-
-     Save it as the **only contents** of a file named `secret.pat` in the **repo root** you cloned in step 1 (gitignored).
-
-     You'll paste this token into the CoCo connection (step 4), and the lab's helper scripts read `secret.pat` to log in as `VHOLuser`.
-
-   - **Block 2 (account identifier):** prints your **`account_identifier`**.
-
-     Copy it; you'll paste it into the CoCo connection (step 4).
+   It's two separate blocks. Run **Block 1**, copy its token, then run **Block 2**.
+   In a worksheet, paste one block, highlight it and press **Cmd/Ctrl+Enter**.
 
    Roles, warehouse, Postgres, Openflow, Iceberg tables and the agent are built later by prompting CoCo (Act 1 onwards).
 
+   #### Block 1: identity + PAT
+
+   Creates the lab user `VHOLuser`, its network policy, and its PAT `vhol_pat`.
+
    ```sql
-   -- ===== BLOCK 1: identity + PAT (run this, then copy the PAT into secret.pat) =====
    USE ROLE ACCOUNTADMIN;
 
    -- Lab user for the CoCo connection and the helper scripts. ACCOUNTADMIN so CoCo can
    -- build the rest of the pipeline (roles, Postgres, Openflow, Iceberg, agent) via prompts.
+   -- No password is set: the PAT below is the only credential.
    CREATE USER IF NOT EXISTS VHOLuser
      DEFAULT_ROLE = ACCOUNTADMIN
      DEFAULT_SECONDARY_ROLES = ('ALL')
@@ -125,17 +119,29 @@ docs/                             architecture diagram + presenter guide (timing
      ADD PROGRAMMATIC ACCESS TOKEN vhol_pat
        DAYS_TO_EXPIRY = 7
        COMMENT = 'Openflow Retail VHOL lab token';
-   -- >>> Copy the token_secret value now (shown once) into secret.pat. <<<
-
-   -- ===== BLOCK 2: account identifier (run this, then copy the value into CoCo) =====
-   SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME() AS account_identifier;
-   -- >>> Copy account_identifier (e.g. MYORG-MYACCT). <<<
-
-   -- OPTIONAL teardown (later, from Snowsight as your admin user, NOT from CoCo):
-   -- ALTER USER VHOLuser REMOVE PROGRAMMATIC ACCESS TOKEN vhol_pat;  -- revoke just the token
-   -- DROP USER IF EXISTS VHOLuser;                                   -- remove the lab user
-   -- DROP NETWORK POLICY IF EXISTS vhol_np;                          -- remove its network policy
    ```
+
+   **Copy the `token_secret` from the results grid now** (it's shown only once).
+
+   Save it as the **only contents** of a file named `secret.pat` in the **repo root** you cloned in step 1 (gitignored).
+   You'll paste the same token into the CoCo connection (step 4), and the lab's helper scripts read `secret.pat` to log in as `VHOLuser`.
+
+   #### Block 2: account identifier
+
+   ```sql
+   SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME() AS account_identifier;
+   ```
+
+   Copy the **`account_identifier`** (e.g. `MYORG-MYACCT`); you'll paste it into the CoCo connection (step 4).
+
+   <details><summary>Optional teardown (later, from Snowsight as your admin user, NOT from CoCo)</summary>
+
+   ```sql
+   ALTER USER VHOLuser REMOVE PROGRAMMATIC ACCESS TOKEN vhol_pat;  -- revoke just the token
+   DROP USER IF EXISTS VHOLuser;                                   -- remove the lab user
+   DROP NETWORK POLICY IF EXISTS vhol_np;                          -- remove its network policy
+   ```
+   </details>
 
 ### C. Connect CoCo Desktop (as VHOLuser)
 
@@ -152,7 +158,10 @@ docs/                             architecture diagram + presenter guide (timing
    |---|---|
    | Account identifier | `account_identifier` from **Block 2** (e.g. `MYORG-MYACCT`) |
    | User | `VHOLuser` |
-   | Auth | **Programmatic Access Token** -> paste the token from **Block 1** (no PAT option? pick **Password** and paste it there) |
+   | Authentication | **Password** -> paste the PAT `token_secret` from **Block 1** |
+
+   `VHOLuser` has no real password. Snowflake accepts a PAT anywhere a password is expected, so the
+   token *is* the password here. (If your CoCo version lists **Programmatic Access Token**, that works too.)
 
    Make it the **active** connection.
 5. **Pick the model:** the latest Claude Sonnet or Opus, or the latest GPT if Claude isn't listed.
@@ -229,21 +238,20 @@ with JSONB metadata and PostGIS warehouse locations). It also lists the tables i
 
 > Is the SPCS_SOM deployment ACTIVE yet?
 
-Once it shows ACTIVE:
+Once it shows ACTIVE, ask for the connector. You don't ask for a runtime: CoCo works out that the
+connector needs one, sees there isn't one yet, and creates `POSTGRES_RUNTIME_SOM` first (a SMALL,
+single-node Gen2 runtime running as `POSTGRES_INGEST_SERVICE_ROLE` with the Postgres EAI, plus the
+suspend/resume cost-control tasks). It waits for the runtime to be ACTIVE (~4 min), then builds the connector.
 
-> Create the POSTGRES_RUNTIME_SOM Gen2 runtime on SPCS_SOM (medium, one node, running as
-> POSTGRES_INGEST_SERVICE_ROLE with the Postgres EAI), plus the suspend/resume cost-control tasks.
-> Wait until the runtime is ACTIVE.
-
-Now create the connector. Pick **one** path; both build the same `POSTGRES_INGEST` connector.
+Pick **one** path; both build the same `POSTGRES_INGEST` connector.
 
 #### Option A (default): connector as code, via SQL
 
-> Create the POSTGRES_INGEST PostgreSQL CDC connector with SQL, not the wizard: configure it to
-> replicate the bronze schema from RETAIL_HOL_PG into RETAIL_HOL_ICEBERG as Iceberg v3 tables,
-> commit the configuration, and start it.
+> Create the POSTGRES_INGEST PostgreSQL CDC connector with SQL, not the wizard: replicate the bronze
+> schema from RETAIL_HOL_PG into RETAIL_HOL_ICEBERG as Iceberg v3 tables, commit the configuration,
+> and start it.
 
-CoCo runs `scripts/configure_connector.py`. The script:
+CoCo first creates the runtime (see above), then runs `scripts/configure_connector.py`. The script:
 1. Creates the connector from its catalog definition: `CREATE OPENFLOW CONNECTOR ... FROM DEFINITION OPENFLOW_POSTGRES_CDC`.
 2. Downloads its live `config.json` and fills in the source URL, a **secret reference** for the
    password, the publication, the 5 tables and the Iceberg destination.
@@ -257,7 +265,7 @@ The password never appears in the file. Open `connector/config.json` afterwards 
 
 Prefer clicking through a UI? Ask CoCo for your values first:
 
-> I want to use the Openflow setup wizard instead of SQL. Give me the exact values to enter for the POSTGRES_INGEST connector.
+> I want to use the Openflow setup wizard instead of SQL. Get whatever the connector needs ready, then give me the exact values to enter for POSTGRES_INGEST.
 
 Then in Snowsight:
 1. **Ingestion -> Openflow -> Launch Openflow.** Switch your role to **`OPENFLOW_ADMIN`** (top right).
@@ -315,19 +323,54 @@ CoCo runs `solutions/04b_observability.sql`. Then open the dashboard:
 4. Open the connector's menu and select **View Details**. Each of the 5 tables shows its **replication phase**
    (New -> Snapshot Load -> Incremental Replication), its status and **Last Ingested**.
 
-Now prove it's live CDC, not a one-time copy:
+Now prove it's live CDC, not a one-time copy. Turn the store on:
 
-> Add 5 new sales rows for Frosted Juniper dated today in Postgres, then show me when they land in Bronze.
+> Start the continuous data generator in the background so the store keeps trading, and show me Bronze keeping up.
 
-The new rows show up in `RETAIL_HOL_ICEBERG.BRONZE.SALES_TRANSACTIONS` within about a minute, and
-**Last Ingested** moves on the dashboard.
+CoCo runs `scripts/cdc_demo.py --continuous` in the background. Every 5 seconds it inserts sales and a
+product review into Postgres and updates an inventory level (an `UPDATE`, not just new rows). Every
+30 seconds it prints how many sales rows are in Postgres versus Bronze. It runs for 20 minutes or until
+you ask CoCo to stop it. On the dashboard, throughput climbs and **Last Ingested** keeps moving.
 
-**Checkpoint O:** the connector shows **Healthy**, all 5 tables are in **Incremental Replication**,
-the error-log query returns no rows, and the new rows reached Bronze.
+*Measure it.* The PostgreSQL connector reports its own latency into the event table:
+
+> How fast is it? Show me end-to-end CDC latency per table, and where the time goes between capture and merge.
+
+| Metric | Measures |
+|---|---|
+| `db.commit.to.capture.latency` | Postgres COMMIT -> connector read the change |
+| `db.capture.to.journal.latency` | connector read -> journal table in Snowflake |
+| `db.commit.to.merge.latency` | Postgres COMMIT -> merged into the Bronze table (end to end, per table) |
+
+Chart query 9 in Snowsight (minute on X, latency on Y) to see the latency line while the generator runs.
+
+*Break it on purpose.* An operator needs to know when a table stops replicating, without watching a dashboard:
+
+> Create an alert that fires when any table in POSTGRES_INGEST fails replication. Then break one table on purpose so I can see it fire.
+
+CoCo creates `POSTGRES_INGEST_TABLE_FAILURE_ALERT`, a Snowflake alert that checks the event table
+every minute and logs failed tables. Then it runs `scripts/fail_replication.py --break`, which adds a new
+Postgres table **without a primary key** (`bronze.pos_events`) to replication. Within about 2 minutes:
+- `pos_events` shows **failed** (`4008 MISSING_PRIMARY_KEYS`) in the dashboard's **View Details**.
+  If the connector shows **Unhealthy**, try **Troubleshoot** for the AI root cause.
+- The alert fires and writes a row to `OPENFLOW_DB.OPENFLOW_SCHEMA.REPLICATION_ALERT_LOG`.
+- The other 5 tables keep replicating. A failure is isolated to one table.
+
+> Fix the broken table.
+
+CoCo runs `scripts/fail_replication.py --fix`, which removes `pos_events` from replication.
+
+Prefer no SQL? In Snowsight, **Monitoring -> Alerts** has an **OPENFLOW** template group with a ready-made
+**Table replication failure alert** that can email or call a webhook.
+
+**Checkpoint O:** the connector is **Healthy** again, the 5 lab tables are in **Incremental Replication**, Bronze kept
+up with the generator, the latency query returns rows, and the alert logged the `pos_events` failure.
 
 > **Why it matters.** Openflow writes its logs and metrics to an event table you own, so health is
-> both a dashboard and plain SQL you can alert on. If a connector turns **Unhealthy**, select
-> **Troubleshoot** on the dashboard for an AI root-cause analysis built from the same telemetry.
+> both a dashboard and plain SQL you can alert on. Latency is measured by the connector itself, from
+> source commit to Bronze, so you can put a number on "real time". When a table fails, an alert tells
+> you, the failure stays isolated to that table, and **Troubleshoot** gives an AI root-cause analysis
+> built from the same telemetry.
 
 ---
 
@@ -369,7 +412,14 @@ Now ask the questions from the start of the story:
 
 > As the VP of Retail: give me a weekly business review and flag products declining over the last 4 weeks.
 
-Then open **Snowsight -> AI & ML -> Agents -> Retail Analyst Agent** and chat with it directly.
+Now hand it to the business users. In Snowsight:
+1. Go to **AI & ML -> Agents** and open **`RETAIL_ANALYST_AGENT`**. This opens the agent in **Agent Studio**
+   (tabs: Overview, Configuration, Access, Evaluations, Observability, Preview).
+2. Use the **Preview** tab to chat with it in Agent Studio.
+3. Publish it to **Snowflake CoWork**: select **+ Add to Snowflake CoWork** (top right), or **Connect** on the
+   "Get your agent ready with CoCo" checklist (step 7 of 7, *Connect to Snowflake CoWork*).
+4. Open **CoWork**, pick **Retail Analyst Agent**, and ask it the persona questions in plain English.
+
 There are 20+ more questions in
 `.snowflake/cortex/skills/openflow-retail-vhol/references/agent_spec.md`.
 
@@ -423,6 +473,8 @@ encoding your own team's Openflow and pipeline conventions.
 | Connector running but Bronze is empty | Ask CoCo to "show recent Openflow errors from the event table". The usual causes are an egress rule still set to the placeholder host, or the secret not granted to `POSTGRES_INGEST_SERVICE_ROLE`. |
 | SQL connector config is blocked | Use **Option B (wizard)** in Act 3. Everything else stays the same. |
 | Connector missing from the dashboard | Select event table `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS` and **Last Hour**. Connectors only appear once they've emitted telemetry in that window. |
+| Alert didn't fire after `--break` | Allow ~3 min (60 s metric + 1 min schedule). Check the alert is resumed (`SHOW ALERTS IN SCHEMA OPENFLOW_DB.OPENFLOW_SCHEMA`) and run query 11 in `04b_observability.sql` for `pos_events`. |
+| No **Add to Snowflake CoWork** button | Switch Snowsight to a role that owns the agent (`RETAIL_HOL_ROLE`) or ACCOUNTADMIN. |
 | Agent "not an allowed model" | The spec already uses `orchestration: auto`. Pick a model in Snowsight -> Agent -> Configuration. |
 
 ## Credits

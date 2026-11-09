@@ -7,22 +7,22 @@
 | 10–15 | 0 + 1 | Explain why the deployment goes first (~15 min to ACTIVE) | Preflight, environment, kick off `SPCS_SOM` |
 | 15–30 | 2 | Pitch OLTP + analytics on one platform. Show the 5 `bronze` tables and the JSONB/PostGIS columns | Create `RETAIL_HOL_PG`, load data |
 | 30–45 | 3 | Highlight the connector-as-code moment: show `config.json`, COMMIT, START. Mention that the wizard (Option B) builds the same connector | Runtime, connector (SQL or wizard), Bronze checkpoint |
-| 45–55 | 4 | Open Connector Observability live: table phases, Last Ingested. Run `cdc_demo.py` and watch new rows land | Observability SQL, dashboard, CDC proof |
+| 45–58 | 4 | Open Connector Observability live. Start the continuous generator, chart latency, then break `pos_events` and show the alert firing while the other tables keep flowing | Observability SQL, dashboard, generator, latency, alert drill |
 | 55–70 | 5 | Show AI sentiment on the worst reviews, then FROZEN WHERE in `SHOW DYNAMIC TABLES` | Silver, Gold |
-| 70–82 | 6 | Ask each persona's question live in Snowsight Agents chat | Semantic view, agent, questions |
+| 70–82 | 6 | Ask each persona's question, then open Agent Studio and **Add to Snowflake CoWork** | Semantic view, agent, questions, CoWork |
 | 82–85 | 7 | Recap the architecture, then cleanup | Cleanup (optional) |
 
 ## Talk track (one line per act)
 1. "Before any data moves we separate concerns: the connector runs as a single ingest role, and that's the whole blast radius."
 2. "The OLTP database lives in the same account as the analytics, so there's no egress and no second security perimeter."
 3. "There's no Debezium or Kafka. The CDC engine is Snowflake-managed compute, and its config is a versioned file you commit."
-4. "Health is an event table you own: a dashboard for operators and SQL for alerts. And look, a row inserted a minute ago is already in Bronze."
+4. "Health is an event table you own. The connector measures its own latency, commit to Bronze, in seconds. And when one table breaks, an alert fires and the other tables keep flowing."
 5. "The data is open Iceberg with zero setup. Refresh is adaptive and history is frozen, and the AI is just a SQL function."
-6. "Four personas, one semantic model, one agent, and it has a budget."
+6. "Four personas, one semantic model, one agent with a budget, and one click puts it in CoWork."
 
 ## Timing risks and mitigations
 - **Deployment provisioning (~15 min).** It must start in Act 1. If an attendee is late, have them run Act 1 immediately and do Act 2 while it provisions.
-- **Runtime provisioning (2–5 min).** Fill the wait by explaining `EXECUTE_AS_ROLE` and the cost-control tasks.
+- **Runtime provisioning (2–5 min).** Attendees only ask for the connector; point out that CoCo worked out it needed a runtime and created it. Fill the wait by explaining `EXECUTE_AS_ROLE` and the cost-control tasks.
 - **Initial snapshot.** Bronze tables can take a few minutes to appear after START.
 - **Cortex in Silver/Gold.** The first refresh of `SILVER_PRODUCT_REVIEWS` and `CUSTOMER_VOICE_ANALYTICS` calls AI functions on every row, so allow a couple of minutes.
 
@@ -43,6 +43,12 @@ The generated inventory is never CRITICAL or LOW (~86% OVERSTOCKED), so tell the
 - Connectors appear only if they emitted telemetry in the selected window. Use **Last Hour** and event table `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS`.
 - The `severity_text` error query from the original notebook never matches Openflow logs (verified: 0 rows while 116 errors existed). Use query 5 in `04b_observability.sql`.
 
+## Act 4 drill notes
+- Start `cdc_demo.py --continuous` early in Act 4; latency metrics are only reported while data flows (every 60 s).
+- `fail_replication.py --break` stops and restarts the connector (~1–2 min) to add `pos_events`; the failure status and alert follow ~2–3 min later. Fill the gap with the latency chart.
+- Always run `--fix` before Act 5 so the dashboard is green again. Only `pos_events` is affected; Silver/Gold don't read it.
+- The SQL alert logs to a table (no notification integration needed). For email/webhook, show the OPENFLOW **Table replication failure alert** template in Snowsight Alerts.
+
 ## Troubleshooting quick reference
 - Openflow errors: run query 5 in `solutions/04b_observability.sql` (parses `value` as JSON and filters `level = 'ERROR'`).
 - Connector observability: Snowsight -> Ingestion -> Openflow -> Connector Observability -> event table `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS`.
@@ -51,6 +57,6 @@ The generated inventory is never CRITICAL or LOW (~86% OVERSTOCKED), so tell the
 
 ## Cost notes
 - The deployment control pool (CPU_X64_S) runs while the deployment exists.
-- The runtime (MEDIUM) bills while ACTIVE. Optional suspend/resume tasks are included.
+- The runtime (SMALL, tier S1, one node) bills while ACTIVE. Optional suspend/resume tasks are included.
 - The Postgres instance is STANDARD_M with 10 GB.
 - Run `99_cleanup.sql` after the event.

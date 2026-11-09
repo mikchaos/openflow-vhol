@@ -11,6 +11,7 @@
 -- ============================ BLOCK 1: identity + PAT ============================
 USE ROLE ACCOUNTADMIN;
 
+-- No password is set: the PAT below is the only credential (paste it into CoCo's Password field).
 CREATE USER IF NOT EXISTS VHOLuser
   DEFAULT_ROLE = ACCOUNTADMIN
   DEFAULT_SECONDARY_ROLES = ('ALL')

@@ -1,6 +1,7 @@
 -- Openflow Retail VHOL — Act 3: Gen2 runtime + PostgreSQL CDC connector (SQL, no wizard)
 -- Source: notebooks/02-openflow-gen2-runtime-connector.ipynb + docs "Configure a gen 2 connector with SQL"
 -- Prereq: deployment SPCS_SOM is ACTIVE (SHOW OPENFLOW DEPLOYMENTS).
+-- The attendee only asks for the connector; CoCo checks for the runtime and creates it here first if it is missing.
 
 USE ROLE ACCOUNTADMIN;
 GRANT READ ON SECRET RETAIL_HOL_ADMIN.SECRETS.RETAIL_HOL_PG_PASSWORD TO ROLE POSTGRES_INGEST_SERVICE_ROLE;
@@ -12,7 +13,7 @@ USE SCHEMA OPENFLOW_SCHEMA;
 
 CREATE OPENFLOW RUNTIME IF NOT EXISTS OPENFLOW_DB.OPENFLOW_SCHEMA.POSTGRES_RUNTIME_SOM
   IN DEPLOYMENT SPCS_SOM
-  NODE_TYPE = MEDIUM
+  NODE_TYPE = SMALL            -- S1 (1 CPU, 4 GB heap) is plenty for 5 tables; resize with SET NODE_TYPE_TIER = 'S2'|'S3'
   MIN_NODES = 1
   MAX_NODES = 1
   EXECUTE_AS_ROLE = POSTGRES_INGEST_SERVICE_ROLE

@@ -110,9 +110,13 @@ Kick off the deployment and immediately continue to Act 2 — do not block on AC
 
 ### Act 3 — Runtime + CDC connector (`solutions/04_runtime_connector.sql`, `references/connector_config.md`)
 - Prereq: `SHOW OPENFLOW DEPLOYMENTS` shows `SPCS_SOM` ACTIVE. If not, report the state and wait.
+- **Connector-first:** the attendee asks only for the connector (SQL or wizard). Resolve its prerequisites yourself:
+  run `SHOW OPENFLOW RUNTIMES LIKE 'POSTGRES_RUNTIME_SOM' IN SCHEMA OPENFLOW_DB.OPENFLOW_SCHEMA`; if missing, tell
+  the attendee "the connector needs a runtime, creating POSTGRES_RUNTIME_SOM first", run steps 1-2 of
+  `04_runtime_connector.sql`, wait for ACTIVE, then build the connector. If it exists but isn't ACTIVE, wait/resume it.
 - `GRANT READ ON SECRET ... TO ROLE POSTGRES_INGEST_SERVICE_ROLE` (as ACCOUNTADMIN).
 - Runtime `OPENFLOW_DB.OPENFLOW_SCHEMA.POSTGRES_RUNTIME_SOM` IN DEPLOYMENT `SPCS_SOM`,
-  `NODE_TYPE=MEDIUM`, `MIN_NODES=1`, `MAX_NODES=1`, `EXECUTE_AS_ROLE=POSTGRES_INGEST_SERVICE_ROLE`,
+  `NODE_TYPE=SMALL` (default tier S1), `MIN_NODES=1`, `MAX_NODES=1`, `EXECUTE_AS_ROLE=POSTGRES_INGEST_SERVICE_ROLE`,
   `EXTERNAL_ACCESS_INTEGRATIONS=(RETAIL_HOL_POSTGRES_EAI)`. Wait for ACTIVE.
 - Tasks `SUSPEND_POSTGRES_RUNTIME_SOM` (5 PM PT) / `RESUME_POSTGRES_RUNTIME_SOM` (6 AM PT). Leave them suspended unless asked.
 - Connector `POSTGRES_INGEST` — **configured with SQL, not the wizard.** Run
@@ -140,8 +144,22 @@ Kick off the deployment and immediately continue to Act 2 — do not block on AC
 - Dashboard (Snowsight UI, attendee clicks): Ingestion -> Openflow -> Connector Observability; event table
   `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS`; Last Hour; POSTGRES_INGEST -> View Details (per-table phase/status/Last Ingested);
   Unhealthy -> Troubleshoot (AI), Issues tab, View logs.
-- Live-CDC proof: `<venv-python> scripts/cdc_demo.py --account <ORG-ACCOUNT>` inserts 5 rows into Postgres
-  `bronze.sales_transactions` (dated today) and polls Bronze until they land. Never write SQL with the Postgres password.
+- Live-CDC proof (default in the lab): `<venv-python> scripts/cdc_demo.py --account <ORG-ACCOUNT> --continuous`
+  **run it in the background** (bash `run_in_background`), then read its output to report Postgres vs Bronze counts.
+  It inserts sales + a review and UPDATEs inventory every 5 s for 20 min. It can keep running through
+  `fail_replication.py` (Postgres keeps accepting writes while the connector restarts). Stop it (kill the shell) when the
+  attendee asks, and always before cleanup.
+  One-shot variant (no `--continuous`): inserts 5 sales rows and polls until they land. Never write SQL with the Postgres password.
+- Latency (queries 9-11 in `04b_observability.sql`): `db.commit.to.merge.latency` (per table, end to end),
+  `db.commit.to.capture.latency`, `db.capture.to.journal.latency` (connector level), all in ms, reported every 60 s
+  only while data flows — if they return 0 rows, start the generator. Report p50/max in seconds.
+- Alert + failure drill: create the alert block in `04b_observability.sql` (`REPLICATION_ALERT_LOG` table,
+  `POSTGRES_INGEST_TABLE_FAILURE_ALERT`, then `ALTER ALERT ... RESUME`) **as ACCOUNTADMIN** — the owner role needs
+  EXECUTE ALERT; if ALERT_HISTORY shows "EXECUTE ALERT privilege must be granted to owner role", recreate it as ACCOUNTADMIN. Then
+  `<venv-python> scripts/fail_replication.py --account <ORG-ACCOUNT> --break` (adds `bronze.pos_events`, no primary key,
+  to the publication and connector; expect `db.table.status = 4008`). Wait ~3 min, show query 11 and query 12, and
+  point to View Details on the dashboard. Restore with `--fix` when asked (or before Act 5). Only `pos_events` is
+  ever broken — never alter the 5 lab tables. Mention the Snowsight OPENFLOW alert template as the no-SQL option.
 
 ### Act 5 — Silver + Gold Dynamic Iceberg Tables (`solutions/05_silver.sql`, `06_gold.sql`)
 First (as ACCOUNTADMIN) grant `RETAIL_HOL_ROLE` USAGE on `RETAIL_HOL_ICEBERG.BRONZE` and
@@ -167,9 +185,11 @@ Bronze column names are UPPERCASE (connector uses case-insensitive identifiers).
   Dollar-quote with plain `$$` (named tags like `$spec$` fail in CoCo's SQL path).
 - To change the agent, re-run the full CREATE OR REPLACE statement; do not use a workspace
   file edit/redeploy path.
-- Tell the attendee to chat in **Snowsight -> AI & ML -> Agents -> Retail Analyst Agent**
-  (or Snowflake Intelligence/CoWork if they ran the optional grant block). Programmatic
-  option: `SNOWFLAKE.CORTEX.DATA_AGENT_RUN` (example in `08_agent.sql`).
+- Snowsight UI (attendee clicks; you can't do it from SQL here): **AI & ML -> Agents -> RETAIL_ANALYST_AGENT** opens
+  **Agent Studio** (Overview / Configuration / Access / Evaluations / Observability / Preview). Chat in **Preview**.
+  To publish for business users: **+ Add to Snowflake CoWork** (top right) or **Connect** on checklist step 7/7
+  "Connect to Snowflake CoWork", then chat in **CoWork**. Programmatic option: `SNOWFLAKE.CORTEX.DATA_AGENT_RUN`
+  (example in `08_agent.sql`).
 
 ## Preflight (run before Act 1)
 ```sql
@@ -186,13 +206,13 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
 0. Connection + skill check, Preflight.
 1. Environment + kick off Openflow deployment (do not wait). Checkpoint D: `SHOW OPENFLOW DEPLOYMENTS` (expect CREATING/…).
 2. Postgres instance -> READY -> pg_creds.json -> secret + egress rule -> venv + loader. Checkpoint P.
-3. (Deployment ACTIVE) Runtime -> ACTIVE -> tasks -> connector via SQL (Option A) or wizard guidance (Option B) -> START. Checkpoint C.
-4. Observability: `04b_observability.sql` -> point to the Connector Observability dashboard -> `cdc_demo.py`. Checkpoint O.
+3. (Deployment ACTIVE) Attendee asks for the connector -> you detect the missing runtime and create it (SMALL) -> ACTIVE -> tasks -> connector via SQL (Option A) or wizard guidance (Option B) -> START. Checkpoints R, C.
+4. Observability: `04b_observability.sql` queries 1-8 -> dashboard -> `cdc_demo.py --continuous` (background) -> latency queries 9-11 -> alert -> `fail_replication.py --break` -> queries 11-12 -> `--fix`. Checkpoint O.
 5. Bronze grants -> Silver -> Gold. Checkpoints S, G.
-6. Semantic view -> agent -> ask persona questions (from `references/agent_spec.md`) with DATA_AGENT_RUN, then point to Snowsight chat.
+6. Semantic view -> agent -> ask persona questions (from `references/agent_spec.md`) with DATA_AGENT_RUN, then walk them through Agent Studio -> Add to Snowflake CoWork.
    Data note: the generated inventory is never CRITICAL/LOW (~86% OVERSTOCKED), so the Supply Chain story is
    overstock + rebalancing, not stock-outs. The 30 s budget can cut off long answers; suggest "continue".
-7. Cleanup only when explicitly asked: `solutions/99_cleanup.sql` (confirm first — destructive).
+7. Cleanup only when explicitly asked: stop any background `cdc_demo.py`, then `solutions/99_cleanup.sql` (confirm first — destructive).
    SUSPEND/TERMINATE are async: poll the SHOW check after each until the status is reached before the
    next DROP (in `SHOW OPENFLOW DEPLOYMENTS` the status is the 3rd column; the 2nd is `type`).
    If the account has other Openflow runtimes or objects in `RETAIL_HOL_ADMIN` / using `RETAIL_HOL_ROLE`,
@@ -207,7 +227,8 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
   per-table `COUNT(*)` equals the loader counts (snapshot lands ~1–3 min after START).
   If empty after ~5 min, run the error-log query in `solutions/04b_observability.sql` (`TRY_PARSE_JSON(value):level = 'ERROR'`, `record_type = 'LOG'`; NOT `record_attributes:severity_text`, which never matches Openflow logs).
 - **O (observability):** event-table telemetry query (query 4) returns LOG and METRIC rows; error-log query (5)
-  returns 0 rows; `cdc_demo.py` reports all new rows in Bronze; dashboard shows POSTGRES_INGEST **Healthy**
+  returns 0 rows; `cdc_demo.py` shows Bronze keeping up; latency query 9 returns rows; after `--break` query 11 shows
+  `pos_events` at 4008 and `REPLICATION_ALERT_LOG` has a row; after `--fix` the 5 lab tables are still status 3; dashboard shows POSTGRES_INGEST **Healthy**
   with tables in **Incremental Replication**. Dashboard needs minimum versions (Snowflake deployment 1.26.0,
   runtime 2026.3.17.13, PostgreSQL connector 0.39.0); if it says **Upgrade required**, say so — SQL checks still work.
 - **S (silver):** `SHOW DYNAMIC TABLES IN SCHEMA RETAIL_HOL_ICEBERG.SILVER_MANAGED_ICEBERG;` -> 3 tables, is_iceberg = true, ADAPTIVE
@@ -220,9 +241,9 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
 1. Infrastructure-as-SQL, least-privilege by construction (connector runs as a single ingest role), observable from minute one (event table).
 2. OLTP lives in the same account as analytics — no egress, one security perimeter.
 3. CDC without a third-party engine: the Openflow runtime is Snowflake-managed SPCS; connector config is code (config.json, versioned, committed).
-4. Telemetry lands in an event table you own: one dashboard for operators, plain SQL for alerts, AI Troubleshoot for root cause.
+4. Telemetry lands in an event table you own: one dashboard for operators, connector-measured latency from source commit to Bronze, plain SQL alerts that catch a failed table (isolated, the rest keep flowing), AI Troubleshoot for root cause.
 5. Open format with zero setup (Snowflake-managed Iceberg), ADAPTIVE incremental refresh, FROZEN regions stop re-processing history, AI enrichment inline in SQL.
-6. The agent writes the SQL; one semantic model answers all four personas; budgets cap cost.
+6. The agent writes the SQL; one semantic model answers all four personas; budgets cap cost; one click puts it in CoWork for business users.
 
 ## Stopping points
 - Do not start Act 3 until the deployment is ACTIVE; do not START the connector until COMMIT is stable.
