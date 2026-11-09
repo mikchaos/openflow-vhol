@@ -422,12 +422,11 @@ Now ask the questions from the start of the story:
 > As the VP of Retail: give me a weekly business review and flag products declining over the last 4 weeks.
 
 Now hand it to the business users. In Snowsight:
-1. Go to **AI & ML -> Agents** and open **`RETAIL_ANALYST_AGENT`**. This opens the agent in **Agent Studio**
-   (tabs: Overview, Configuration, Access, Evaluations, Observability, Preview).
+1. Go to **AI** (or **AI & ML**) **-> Agent Studio** and open **`RETAIL_ANALYST_AGENT`**.
 2. Use the **Preview** tab to chat with it in Agent Studio.
-3. Publish it to **Snowflake CoWork**: select **+ Add to Snowflake CoWork** (top right), or **Connect** on the
-   "Get your agent ready with CoCo" checklist (step 7 of 7, *Connect to Snowflake CoWork*).
-4. Open **CoWork**, pick **Retail Analyst Agent**, and ask it the persona questions in plain English.
+3. Publish it to **Snowflake CoWork**: select **+ Add to Snowflake CoWork** (top right).
+4. On the **Preview** tab, select **Preview in Snowflake CoWork** (top right), pick **Retail Analyst Agent**, and
+   ask it the persona questions in plain English.
 
 There are 20+ more questions in
 `.snowflake/cortex/skills/openflow-retail-vhol/references/agent_spec.md`.

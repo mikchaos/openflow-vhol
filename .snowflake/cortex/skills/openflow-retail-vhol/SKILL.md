@@ -186,10 +186,9 @@ Bronze column names are UPPERCASE (connector uses case-insensitive identifiers).
   Dollar-quote with plain `$$` (named tags like `$spec$` fail in CoCo's SQL path).
 - To change the agent, re-run the full CREATE OR REPLACE statement; do not use a workspace
   file edit/redeploy path.
-- Snowsight UI (attendee clicks; you can't do it from SQL here): **AI & ML -> Agents -> RETAIL_ANALYST_AGENT** opens
-  **Agent Studio** (Overview / Configuration / Access / Evaluations / Observability / Preview). Chat in **Preview**.
-  To publish for business users: **+ Add to Snowflake CoWork** (top right) or **Connect** on checklist step 7/7
-  "Connect to Snowflake CoWork", then chat in **CoWork**. Programmatic option: `SNOWFLAKE.CORTEX.DATA_AGENT_RUN`
+- Snowsight UI (attendee clicks; you can't do it from SQL here): **AI (or AI & ML) -> Agent Studio -> RETAIL_ANALYST_AGENT**.
+  Chat in the **Preview** tab. To publish for business users: **+ Add to Snowflake CoWork** (top right), then on the
+  Preview tab **Preview in Snowflake CoWork** -> pick Retail Analyst Agent -> ask the persona questions. Programmatic option: `SNOWFLAKE.CORTEX.DATA_AGENT_RUN`
   (example in `08_agent.sql`).
 
 ## Preflight (run before Act 1)
