@@ -37,9 +37,9 @@ FROM raw, LATERAL FLATTEN(input => resp:content) f
 WHERE f.value:type::VARCHAR = 'text';
 ```
 
-## More questions to explore (Agent Studio Preview or CoWork)
-Snowsight -> AI (or AI & ML) -> Agent Studio -> RETAIL_ANALYST_AGENT; chat in **Preview**, or publish with
-**+ Add to Snowflake CoWork** and use **Preview -> Preview in Snowflake CoWork** to chat there.
+## More questions to explore (Snowflake CoWork)
+Snowsight -> AI (or AI & ML) -> Agent Studio -> RETAIL_ANALYST_AGENT; publish with
+**+ Add to Snowflake CoWork**, then use **Preview -> Preview in Snowflake CoWork** to chat there.
 ### Merchandising & Assortment
 | # | Question |
 |---|----------|

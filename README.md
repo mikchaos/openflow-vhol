@@ -423,9 +423,8 @@ Now ask the questions from the start of the story:
 
 Now hand it to the business users. In Snowsight:
 1. Go to **AI** (or **AI & ML**) **-> Agent Studio** and open **`RETAIL_ANALYST_AGENT`**.
-2. Use the **Preview** tab to chat with it in Agent Studio.
-3. Publish it to **Snowflake CoWork**: select **+ Add to Snowflake CoWork** (top right).
-4. On the **Preview** tab, select **Preview in Snowflake CoWork** (top right), pick **Retail Analyst Agent**, and
+2. Publish it to **Snowflake CoWork**: select **+ Add to Snowflake CoWork** (top right).
+3. On the **Preview** tab, select **Preview in Snowflake CoWork** (top right), pick **Retail Analyst Agent**, and
    ask it the persona questions in plain English.
 
 There are 20+ more questions in
