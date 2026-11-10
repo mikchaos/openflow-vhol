@@ -130,6 +130,7 @@ docs/                             architecture diagram + presenter guide (timing
    2. Rename the file to **`secret.pat`** (macOS/Linux: `mv secret.pat_example secret.pat`; Windows: `ren secret.pat_example secret.pat`).
 
    > **Note:** `secret.pat` is listed in `.gitignore`, so it is never committed or pushed to GitHub.
+
    You'll paste the same token into the CoCo connection (step 4), and the lab's helper scripts read `secret.pat` to log in as `VHOLuser`.
 
    #### Block 2: account identifier
