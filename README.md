@@ -59,6 +59,7 @@ engine, no data egress, and no ETL glue.
 
 ```
 README.md                         this file: setup + the full lab story
+secret.pat_example                template for your PAT: paste the token, rename to secret.pat (gitignored)
 solutions/                        SQL answer key (00 bootstrap ... 04b observability ... 08 agent, 99 cleanup)
 scripts/setup_postgres.py         creates RETAIL_HOL_PG, saves creds to pg_creds.json, creates the secret + egress rule
 scripts/load_retail_data.py       generates + loads the retail data into Postgres, creates the CDC publication
@@ -123,7 +124,12 @@ docs/                             architecture diagram + presenter guide (timing
 
    **Copy the `token_secret` from the results grid now** (it's shown only once).
 
-   Save it as the **only contents** of a file named `secret.pat` in the **repo root** you cloned in step 1 (gitignored).
+   Save it in the repo root using the template `secret.pat_example`:
+   1. Open `secret.pat_example` and replace the placeholder line with your token. The file must contain **only the token**
+      (one line, no quotes, no extra text).
+   2. Rename the file to **`secret.pat`** (macOS/Linux: `mv secret.pat_example secret.pat`; Windows: `ren secret.pat_example secret.pat`).
+
+   > **Note:** `secret.pat` is listed in `.gitignore`, so it is never committed or pushed to GitHub.
    You'll paste the same token into the CoCo connection (step 4), and the lab's helper scripts read `secret.pat` to log in as `VHOLuser`.
 
    #### Block 2: account identifier
