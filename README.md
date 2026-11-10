@@ -78,7 +78,6 @@ docs/                             architecture diagram + presenter guide (timing
 1. Clone the repo. CoCo Desktop will ask for this folder when it launches.
    ```
    git clone https://github.com/sfc-gh-skumar-1/openflow-vhol.git
-   cd openflow-vhol
    ```
    (No git? Use **Code -> Download ZIP** and unzip it.)
 
