@@ -172,7 +172,7 @@ docs/                             architecture diagram + presenter guide (timing
    Make it the **active** connection.
 5. **Add the lab skill.** The `openflow-retail-vhol` skill is what gives everyone the same object names and
    settings, so add it before you start:
-   1. In CoCo Desktop, open **Agent Settings** (left sidebar) -> **Skills**.
+   1. In CoCo Desktop, open **Customize** (left sidebar) -> **Skills**.
    2. Click the **+** button (top right, next to **Browse Shared**) and choose **Add Local Skill**.
    3. In the folder picker, go into the repo you cloned in step 1 and select the **`skills`** folder at
       **`openflow-vhol/.snowflake/cortex/skills`** (the folder that *contains* `openflow-retail-vhol/`).
