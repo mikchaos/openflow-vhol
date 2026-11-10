@@ -36,9 +36,11 @@ CREATE NETWORK POLICY IF NOT EXISTS RETAIL_HOL_NETWORK_POLICY
 GRANT USAGE ON NETWORK POLICY RETAIL_HOL_NETWORK_POLICY TO ROLE RETAIL_HOL_ROLE;
 
 -- Egress rule + EAI used by the Openflow runtime to reach Postgres.
--- Placeholder host; updated with the real instance host in Act 2.
+-- Placeholder host; updated with the real instance host in Act 2 (setup_postgres.py).
+-- Must be a resolvable hostname: Snowflake rejects unresolvable hosts such as 'placeholder.invalid'
+-- ("One or more values might be an unresolvable host name"). example.com is inert and gets replaced.
 CREATE NETWORK RULE IF NOT EXISTS RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_EGRESS_RULE
-  TYPE = HOST_PORT MODE = EGRESS VALUE_LIST = ('placeholder.invalid:5432');
+  TYPE = HOST_PORT MODE = EGRESS VALUE_LIST = ('example.com:5432');
 CREATE EXTERNAL ACCESS INTEGRATION IF NOT EXISTS RETAIL_HOL_POSTGRES_EAI
   ALLOWED_NETWORK_RULES = (RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_EGRESS_RULE)
   ENABLED = TRUE

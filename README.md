@@ -489,7 +489,7 @@ encoding your own team's Openflow and pipeline conventions.
 | `USE ROLE not allowed` / `Current session is restricted` | Your PAT was created with `ROLE_RESTRICTION`, which pins the session to one role. In Snowsight, run `ALTER USER VHOLuser REMOVE PROGRAMMATIC ACCESS TOKEN vhol_pat;`, re-run Block 1 (no role restriction), and update the token in `secret.pat` and the CoCo connection. |
 | Agent says "I've reached the time limit" | The budget is 30 s per answer. Ask a narrower question, or say "continue". |
 | Connector commit/validation error | Ask CoCo to read the error, fix the named key in `config.json`, re-upload and commit again. |
-| Connector running but Bronze is empty | Ask CoCo to "show recent Openflow errors from the event table". The usual causes are an egress rule still set to the placeholder host, or the secret not granted to `POSTGRES_INGEST_SERVICE_ROLE`. |
+| Connector running but Bronze is empty | Ask CoCo to "show recent Openflow errors from the event table". The usual causes are an egress rule still set to the placeholder host (`example.com:5432`), or the secret not granted to `POSTGRES_INGEST_SERVICE_ROLE`. |
 | SQL connector config is blocked | Use **Option B (wizard)** in Act 3. Everything else stays the same. |
 | Connector missing from the dashboard | Select event table `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS` and **Last Hour**. Connectors only appear once they've emitted telemetry in that window. |
 | Alert didn't fire after `--break` | Allow ~3 min (60 s metric + 1 min schedule). Check the alert is resumed (`SHOW ALERTS IN SCHEMA OPENFLOW_DB.OPENFLOW_SCHEMA`) and run query 11 in `04b_observability.sql` for `pos_events`. |

@@ -66,7 +66,7 @@ Gotchas:
     AND TRY_PARSE_JSON(value):level::STRING = 'ERROR'
   ORDER BY timestamp DESC LIMIT 20;
   ```
-  The usual causes are an egress rule that still has the placeholder host, missing READ on the secret for `POSTGRES_INGEST_SERVICE_ROLE`, or a missing publication.
+  The usual causes are an egress rule that still has the placeholder host (`example.com:5432`), missing READ on the secret for `POSTGRES_INGEST_SERVICE_ROLE`, or a missing publication.
 - For deeper diagnostics, load the bundled `openflow` / `openflow-observability` skills.
 
 ## Wizard path (Option B: same connector, guided UI)
