@@ -401,7 +401,7 @@ up with the generator, the latency query returns rows, and the alert logged the 
 > JSON with stock health and warehouse coordinates, and enrich product reviews with Cortex
 > sentiment and theme classification.
 
-> Show me the most negative reviews with their AI sentiment score and theme.
+> Show me the negative reviews with their AI sentiment and theme.
 
 > Build the Gold layer: daily product performance, customer voice analytics with AI summaries
 > and intent, and a weekly product scorecard, with frozen regions so history isn't re-processed.
@@ -495,6 +495,7 @@ encoding your own team's Openflow and pipeline conventions.
 | Alert didn't fire after `--break` | Allow ~3 min (60 s metric + 1 min schedule). Check the alert is resumed (`SHOW ALERTS IN SCHEMA OPENFLOW_DB.OPENFLOW_SCHEMA`) and run query 11 in `04b_observability.sql` for `pos_events`. |
 | No **Add to Snowflake CoWork** button | Switch Snowsight to a role that owns the agent (`RETAIL_HOL_ROLE`) or ACCOUNTADMIN. |
 | Add Local Skill: "No valid skills found ... Directory was NOT persisted" | You picked the repo root. Pick `openflow-vhol/.snowflake/cortex/skills` instead (macOS: **Cmd+Shift+. (period)** shows hidden folders). |
+| `SNOWFLAKE.CORTEX.SENTIMENT` (or `CLASSIFY_TEXT`, `SUMMARIZE`) is blocked | New accounts can't use the legacy `SNOWFLAKE.CORTEX.*` functions. The lab already uses `AI_SENTIMENT`, `AI_CLASSIFY` and `AI_SUMMARIZE`; make sure CoCo runs `05_silver.sql` / `06_gold.sql` as written. |
 | Agent "not an allowed model" | The spec already uses `orchestration: auto`. Pick a model in Snowsight -> Agent -> Configuration. |
 
 ## Credits

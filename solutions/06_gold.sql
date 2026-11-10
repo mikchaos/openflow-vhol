@@ -38,7 +38,8 @@ AS
 
 -- gold_voice
 -- Gold: Customer Voice Analytics — full Cortex AI enrichment pipeline
--- SENTIMENT + SUMMARIZE + CLASSIFY_TEXT — all inline, all automatic
+-- AI_SENTIMENT + AI_SUMMARIZE + AI_CLASSIFY — all inline, all automatic
+-- (AI_* functions; SENTIMENT_SCORE is mapped from the AI_SENTIMENT label: positive 1, negative -1, else 0)
 -- Frozen region: comments older than 14 days never re-processed
 -- clean DDL - CATALOG and EXTERNAL_VOLUME are set at the database RETAIL_HOL_ICEBERG
 
@@ -49,6 +50,14 @@ CREATE OR REPLACE DYNAMIC ICEBERG TABLE GOLD_MANAGED_ICEBERG.CUSTOMER_VOICE_ANAL
   FROZEN WHERE (COMMENT_DATE < CURRENT_DATE() - INTERVAL '14 days')
 AS
   SELECT
+    COMMENT_ID, PRODUCT_NAME, COMMENT_TITLE, COMMENT_BODY, USER_NAME, COMMENT_DATE, CHANNEL,
+    (CASE SENTIMENT_LABEL WHEN 'positive' THEN 1 WHEN 'negative' THEN -1 ELSE 0 END)::FLOAT AS SENTIMENT_SCORE,
+    SENTIMENT_LABEL,
+    AI_SUMMARY,
+    CUSTOMER_INTENT,
+    CREATED_AT
+  FROM (
+  SELECT
     c.ID AS COMMENT_ID,
     c.ITEM_NAME AS PRODUCT_NAME,
     c.COMMENT_TITLE,
@@ -56,14 +65,15 @@ AS
     c.USER_NAME,
     c.CREATED_AT::DATE AS COMMENT_DATE,
     c.CHANNEL,
-    SNOWFLAKE.CORTEX.SENTIMENT(c.COMMENT_BODY) AS SENTIMENT_SCORE,
-    SNOWFLAKE.CORTEX.SUMMARIZE(c.COMMENT_BODY) AS AI_SUMMARY,
-    SNOWFLAKE.CORTEX.CLASSIFY_TEXT(
+    AI_SENTIMENT(c.COMMENT_BODY):categories[0]:sentiment::VARCHAR AS SENTIMENT_LABEL,
+    AI_SUMMARIZE(c.COMMENT_BODY) AS AI_SUMMARY,
+    AI_CLASSIFY(
       c.COMMENT_BODY,
       ['praise', 'complaint', 'question', 'suggestion', 'shipping_issue']
-    ):label::VARCHAR AS CUSTOMER_INTENT,
+    ):labels[0]::VARCHAR AS CUSTOMER_INTENT,
     c.CREATED_AT
-  FROM BRONZE.CUSTOMER_COMMENTS c;
+  FROM BRONZE.CUSTOMER_COMMENTS c
+  );
 
 -- gold_scorecard
 -- Gold: Weekly Product Scorecard — executive rollup

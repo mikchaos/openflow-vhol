@@ -24,6 +24,7 @@
 - **Deployment provisioning (~15 min).** It must start in Act 1. If an attendee is late, have them run Act 1 immediately and do Act 2 while it provisions.
 - **Runtime provisioning (2–5 min).** Attendees only ask for the connector; point out that CoCo worked out it needed a runtime and created it. Fill the wait by explaining `EXECUTE_AS_ROLE` and the cost-control tasks.
 - **Initial snapshot.** Bronze tables can take a few minutes to appear after START.
+- **AI functions.** Silver/Gold use `AI_SENTIMENT`, `AI_CLASSIFY` and `AI_SUMMARIZE` (new accounts are blocked from the legacy `SNOWFLAKE.CORTEX.*` functions). `AI_SENTIMENT` returns a label (positive/negative/neutral/mixed); the lab maps it to a 1/0/-1 score so averages and "worst sentiment" questions still work.
 - **Cortex in Silver/Gold.** The first refresh of `SILVER_PRODUCT_REVIEWS` and `CUSTOMER_VOICE_ANALYTICS` calls AI functions on every row, so allow a couple of minutes.
 
 ## Connector SQL path: verified, still rehearse

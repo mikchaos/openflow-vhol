@@ -202,6 +202,10 @@ tables:
         description: AI classified intent praise complaint question suggestion or shipping_issue
         expr: CUSTOMER_INTENT
         data_type: VARCHAR
+      - name: SENTIMENT_LABEL
+        description: AI sentiment label positive negative neutral or mixed
+        expr: SENTIMENT_LABEL
+        data_type: VARCHAR
     time_dimensions:
       - name: COMMENT_DATE
         description: Date the comment was posted
@@ -209,7 +213,7 @@ tables:
         data_type: DATE
     facts:
       - name: SENTIMENT_SCORE
-        description: AI sentiment score from negative 1 to positive 1
+        description: AI sentiment score 1 positive 0 neutral or mixed -1 negative (mapped from SENTIMENT_LABEL)
         expr: SENTIMENT_SCORE
         data_type: FLOAT
     metrics:

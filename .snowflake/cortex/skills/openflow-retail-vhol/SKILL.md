@@ -170,12 +170,16 @@ SELECT on all + future tables and Iceberg tables. Then as `RETAIL_HOL_ROLE`:
 |---|---|---|
 | `SILVER_MANAGED_ICEBERG.SILVER_SALES` | DOWNSTREAM | unpivot 5 regional unit columns -> REGION rows |
 | `SILVER_MANAGED_ICEBERG.SILVER_INVENTORY` | 5 minutes | flatten JSONB, STOCK_HEALTH (CRITICAL/LOW/NORMAL/OVERSTOCKED), lon/lat |
-| `SILVER_MANAGED_ICEBERG.SILVER_PRODUCT_REVIEWS` | 10 minutes | `CORTEX.SENTIMENT` + `CLASSIFY_TEXT` theme |
+| `SILVER_MANAGED_ICEBERG.SILVER_PRODUCT_REVIEWS` | 10 minutes | `AI_SENTIMENT` label + score, `AI_CLASSIFY` theme |
 | `GOLD_MANAGED_ICEBERG.DAILY_PRODUCT_PERFORMANCE` | 10 minutes | FROZEN WHERE > 7 days |
-| `GOLD_MANAGED_ICEBERG.CUSTOMER_VOICE_ANALYTICS` | 15 minutes | SENTIMENT + SUMMARIZE + CLASSIFY_TEXT, FROZEN > 14 days |
+| `GOLD_MANAGED_ICEBERG.CUSTOMER_VOICE_ANALYTICS` | 15 minutes | AI_SENTIMENT + AI_SUMMARIZE + AI_CLASSIFY, FROZEN > 14 days |
 | `GOLD_MANAGED_ICEBERG.WEEKLY_PRODUCT_SCORECARD` | 1 hour | reads DAILY_PRODUCT_PERFORMANCE, FROZEN > 30 days |
 All: `CREATE OR REPLACE DYNAMIC ICEBERG TABLE`, `WAREHOUSE=RETAIL_HOL_WH`, `REFRESH_MODE=ADAPTIVE`.
 No CATALOG/EXTERNAL_VOLUME clauses — they inherit Snowflake-managed storage from the database.
+**AI functions:** use only the `AI_*` functions as written in `05_silver.sql` / `06_gold.sql`. Never use
+`SNOWFLAKE.CORTEX.SENTIMENT` / `CLASSIFY_TEXT` / `SUMMARIZE` — new accounts are blocked from the legacy namespace.
+`AI_SENTIMENT` returns a label (`:categories[0]:sentiment`), so the files keep the label and map it to a FLOAT score
+(positive 1, neutral/mixed 0, negative -1) that Gold, the semantic view and the agent use; `AI_CLASSIFY` is read with `:labels[0]`.
 Bronze column names are UPPERCASE (connector uses case-insensitive identifiers).
 
 ### Act 6 — Semantic View + Agent (`solutions/07_semantic_view.sql`, `08_agent.sql`, `references/agent_spec.md`)
@@ -196,7 +200,7 @@ Bronze column names are UPPERCASE (connector uses case-insensitive identifiers).
 SELECT CURRENT_REGION() AS region, CURRENT_ACCOUNT() AS account;
 SHOW OPENFLOW DEPLOYMENTS;            -- command must be recognized
 SHOW POSTGRES INSTANCES;              -- command must be recognized
-SELECT SNOWFLAKE.CORTEX.SENTIMENT('Smells amazing') AS cortex_ok;
+SELECT AI_SENTIMENT('Smells amazing'):categories[0]:sentiment::VARCHAR AS cortex_ok;  -- expect 'positive'
 ```
 If any fails with "unsupported"/"unknown command", stop and tell the attendee which
 feature is unavailable in this account/region. (Openflow terms of service may need to be
@@ -233,7 +237,7 @@ accepted once by ORGADMIN; if deployment creation fails mentioning terms, say so
   runtime 2026.3.17.13, PostgreSQL connector 0.39.0); if it says **Upgrade required**, say so — SQL checks still work.
 - **S (silver):** `SHOW DYNAMIC TABLES IN SCHEMA RETAIL_HOL_ICEBERG.SILVER_MANAGED_ICEBERG;` -> 3 tables, is_iceberg = true, ADAPTIVE
   (SILVER_SALES 21,875 rows = 4,375 x 5 regions; SILVER_INVENTORY 634; SILVER_PRODUCT_REVIEWS 512).
-  Peek: lowest-sentiment reviews from `SILVER_PRODUCT_REVIEWS` with `AI_REVIEW_THEME`.
+  Peek: negative reviews (`AI_SENTIMENT_LABEL = 'negative'`) from `SILVER_PRODUCT_REVIEWS` with `AI_REVIEW_THEME`.
 - **G (gold):** `SHOW DYNAMIC TABLES IN SCHEMA RETAIL_HOL_ICEBERG.GOLD_MANAGED_ICEBERG;` -> 3 tables with `immutable_where` set; refresh history query in `06_gold.sql`.
 - **A (agent):** `SHOW AGENTS IN SCHEMA RETAIL_HOL_ICEBERG.GOLD_MANAGED_ICEBERG;` and one DATA_AGENT_RUN answer.
 

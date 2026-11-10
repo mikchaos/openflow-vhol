@@ -99,12 +99,23 @@ AS
 -- silver_reviews
 -- Silver: Product Reviews — Cortex AI sentiment scoring + theme classification
 -- Every new review gets AI-enriched automatically on refresh
+-- Uses the AI_* functions (the legacy SNOWFLAKE.CORTEX.* functions are blocked on new accounts).
+-- AI_SENTIMENT returns a label (positive/negative/neutral/mixed), not a number, so the label is kept and also
+-- mapped to the -1..1 score the Gold layer, semantic view and agent average: positive 1, negative -1, else 0.
 -- clean DDL - CATALOG and EXTERNAL_VOLUME are set at the database RETAIL_HOL_ICEBERG
 CREATE OR REPLACE DYNAMIC ICEBERG TABLE SILVER_MANAGED_ICEBERG.SILVER_PRODUCT_REVIEWS
   TARGET_LAG = '10 minutes'
   WAREHOUSE = RETAIL_HOL_WH
   REFRESH_MODE = ADAPTIVE
 AS
+  SELECT
+    REVIEW_ID, PRODUCT_ID, PRODUCT_NAME, REVIEW_TITLE, REVIEW_BODY, STAR_RATING, AUTHOR, SUBMITTED_AT,
+    IS_VERIFIED, HELPFUL_VOTES, MODERATION_STATUS, CHANNEL,
+    (CASE AI_SENTIMENT_LABEL WHEN 'positive' THEN 1 WHEN 'negative' THEN -1 ELSE 0 END)::FLOAT AS AI_SENTIMENT_SCORE,
+    AI_SENTIMENT_LABEL,
+    AI_REVIEW_THEME,
+    CREATED_AT
+  FROM (
   SELECT
     ID AS REVIEW_ID,
     PRODUCT_ID,
@@ -118,13 +129,14 @@ AS
     HELPFUL_VOTES,
     MODERATION_STATUS,
     API_SOURCE AS CHANNEL,
-    SNOWFLAKE.CORTEX.SENTIMENT(BODY) AS AI_SENTIMENT_SCORE,
-    SNOWFLAKE.CORTEX.CLASSIFY_TEXT(
+    AI_SENTIMENT(BODY):categories[0]:sentiment::VARCHAR AS AI_SENTIMENT_LABEL,
+    AI_CLASSIFY(
       BODY,
       ['product_quality', 'shipping_packaging', 'scent_fragrance', 'value_for_money', 'customer_service']
-    ):label::VARCHAR AS AI_REVIEW_THEME,
+    ):labels[0]::VARCHAR AS AI_REVIEW_THEME,
     CREATED_AT
-  FROM BRONZE.PRODUCT_REVIEWS;
+  FROM BRONZE.PRODUCT_REVIEWS
+  );
 
 -- Checkpoint S
 SHOW DYNAMIC TABLES IN SCHEMA SILVER_MANAGED_ICEBERG;
