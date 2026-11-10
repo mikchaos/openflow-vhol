@@ -27,6 +27,14 @@ Do not rename objects, change target lags, or "improve" DDL. Use `IF NOT EXISTS`
 Checkpoint and report the result in one or two lines, then tell the attendee the
 "why it matters" line for that part.
 
+**Execution order (strict):** run lab SQL **sequentially, one statement per tool call, in the order it appears in
+the `solutions/` file**. Never batch statements into parallel tool calls (no `direct_tool_calling` with
+`execution: parallel`, no simultaneous `sql_execute` calls): almost every step depends on the one before it
+(role -> grants -> database -> schema -> table -> dynamic table), so parallel runs fail with "does not exist" /
+"insufficient privileges". Wait for each statement to succeed before sending the next. Read-only checks
+(SHOW / DESCRIBE / SELECT on finished objects) may be grouped only when nothing depends on them. If a statement
+fails because an earlier one hadn't run, re-run the remaining statements in file order (all are safe to re-run).
+
 ## Fixed context
 
 - Account: event-provided, region **varies**. SPCS, Openflow, Managed Postgres and
@@ -81,7 +89,7 @@ Checkpoint and report the result in one or two lines, then tell the attendee the
 | Admin DB | `RETAIL_HOL_ADMIN` with schemas `SECRETS`, `NETWORK` |
 | Destination DB | `RETAIL_HOL_ICEBERG` with `CATALOG='SNOWFLAKE'`, `EXTERNAL_VOLUME='SNOWFLAKE_MANAGED'` |
 | PG network rule / policy | `RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_INGRESS_RULE` (POSTGRES_INGRESS) / `RETAIL_HOL_NETWORK_POLICY` |
-| Egress rule / EAI | `RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_EGRESS_RULE` (HOST_PORT, placeholder until Act 2) / `RETAIL_HOL_POSTGRES_EAI` |
+| Egress rule / EAI | `RETAIL_HOL_ADMIN.NETWORK.RETAIL_HOL_EGRESS_RULE` (HOST_PORT, placeholder `example.com:5432` until Act 2 — must be resolvable; never `*.invalid`) / `RETAIL_HOL_POSTGRES_EAI` |
 | Openflow namespace | `OPENFLOW_DB.OPENFLOW_SCHEMA` |
 | Roles | `OPENFLOW_ADMIN`, `POSTGRES_INGEST_SERVICE_ROLE` (execute-as role) |
 | Deployment | `SPCS_SOM` (`DEPLOYMENT_TYPE='SNOWFLAKE'`), ~15 min to ACTIVE |
