@@ -174,11 +174,11 @@ docs/                             architecture diagram + presenter guide (timing
 5. **Add the lab skill.** The `openflow-retail-vhol` skill is what gives everyone the same object names and
    settings, so add it before you start:
    1. In CoCo Desktop, open **Agent Settings** (left sidebar) -> **Skills**.
-   2. In the **Local Skills** section, click **+ Add Local Skill**.
+   2. Click the **+** button (top right, next to **Browse Shared**) and choose **Add Local Skill**.
    3. Pick the repo folder you cloned in step 1 (`openflow-vhol`). CoCo scans it and registers the skill.
-   4. Confirm **`openflow-retail-vhol`** now appears under **Local Skills**.
+   4. Search for `openflow-retail-vhol` in **Search skills...** and confirm it's listed.
 
-   (CoCo may already list it there, because it auto-discovers skills in an opened project. If it does,
+   (CoCo may already list it, because it auto-discovers skills in an opened project. If it does,
    you're done with this step.)
 6. **Pick the model:** the latest Claude Sonnet or Opus, or the latest GPT if Claude isn't listed.
 
