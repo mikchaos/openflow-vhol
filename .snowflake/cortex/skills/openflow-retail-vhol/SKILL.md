@@ -27,6 +27,14 @@ Do not rename objects, change target lags, or "improve" DDL. Use `IF NOT EXISTS`
 Checkpoint and report the result in one or two lines, then tell the attendee the
 "why it matters" line for that part.
 
+**Execution order (strict):** run lab SQL **sequentially, one statement per tool call, in the order it appears in
+the `solutions/` file**. Never batch statements into parallel tool calls (no `direct_tool_calling` with
+`execution: parallel`, no simultaneous `sql_execute` calls): almost every step depends on the one before it
+(role -> grants -> database -> schema -> table -> dynamic table), so parallel runs fail with "does not exist" /
+"insufficient privileges". Wait for each statement to succeed before sending the next. Read-only checks
+(SHOW / DESCRIBE / SELECT on finished objects) may be grouped only when nothing depends on them. If a statement
+fails because an earlier one hadn't run, re-run the remaining statements in file order (all are safe to re-run).
+
 ## Fixed context
 
 - Account: event-provided, region **varies**. SPCS, Openflow, Managed Postgres and
