@@ -177,7 +177,7 @@ docs/                             architecture diagram + presenter guide (timing
    2. Click the **+** button (top right, next to **Browse Shared**) and choose **Add Local Skill**.
    3. In the folder picker, go into the repo you cloned in step 1 and select the **`skills`** folder at
       **`openflow-vhol/.snowflake/cortex/skills`** (the folder that *contains* `openflow-retail-vhol/`).
-      - `.snowflake` is a hidden folder. On macOS press **Cmd+Shift+.** in the picker to show it; on Windows
+      - `.snowflake` is a hidden folder. On macOS press **Cmd+Shift+. (period)** in the picker to show it; on Windows
         type the path into the address bar, e.g. `C:\...\openflow-vhol\.snowflake\cortex\skills`.
       - Don't pick the repo root (`openflow-vhol`): CoCo only looks one level down and reports
         *"No valid skills found ... Directory was NOT persisted"*.
@@ -494,7 +494,7 @@ encoding your own team's Openflow and pipeline conventions.
 | Connector missing from the dashboard | Select event table `OPENFLOW_DB.OPENFLOW_SCHEMA.EVENTS` and **Last Hour**. Connectors only appear once they've emitted telemetry in that window. |
 | Alert didn't fire after `--break` | Allow ~3 min (60 s metric + 1 min schedule). Check the alert is resumed (`SHOW ALERTS IN SCHEMA OPENFLOW_DB.OPENFLOW_SCHEMA`) and run query 11 in `04b_observability.sql` for `pos_events`. |
 | No **Add to Snowflake CoWork** button | Switch Snowsight to a role that owns the agent (`RETAIL_HOL_ROLE`) or ACCOUNTADMIN. |
-| Add Local Skill: "No valid skills found ... Directory was NOT persisted" | You picked the repo root. Pick `openflow-vhol/.snowflake/cortex/skills` instead (macOS: **Cmd+Shift+.** shows hidden folders). |
+| Add Local Skill: "No valid skills found ... Directory was NOT persisted" | You picked the repo root. Pick `openflow-vhol/.snowflake/cortex/skills` instead (macOS: **Cmd+Shift+. (period)** shows hidden folders). |
 | Agent "not an allowed model" | The spec already uses `orchestration: auto`. Pick a model in Snowsight -> Agent -> Configuration. |
 
 ## Credits
